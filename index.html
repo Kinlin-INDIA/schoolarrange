@@ -1,0 +1,3027 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SchoolArrange</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#FAFAFA;color:#18181B}
+button{cursor:pointer;font-family:inherit}
+input,select,textarea{font-family:inherit}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:#D1D1D6;border-radius:2px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useCallback}=React;
+
+const C={
+  black:"#0A0A0A",white:"#FFFFFF",
+  g50:"#FAFAFA",g100:"#F4F4F5",g200:"#E4E4E7",g300:"#D1D1D6",
+  g400:"#A1A1AA",g500:"#71717A",g600:"#52525B",g700:"#3F3F46",g900:"#18181B",
+  blue:"#2563EB",blueL:"#EFF6FF",
+  green:"#16A34A",greenL:"#F0FDF4",
+  yellow:"#D97706",yellowL:"#FFFBEB",
+  red:"#DC2626",redL:"#FEF2F2",
+  purple:"#7C3AED",purpleL:"#F5F3FF",
+};
+
+const GROUPS={
+  "Nursery–Gr1":["Nursery","KG","Grade 1"],
+  "Gr2–3":["Grade 2","Grade 3"],
+  "Gr4–5":["Grade 4","Grade 5"],
+  "Gr6–8":["Grade 6","Grade 7","Grade 8"],
+  "Gr9–10":["Grade 9","Grade 10"],
+  "Gr11–12":["Grade 11","Grade 12"],
+};
+const SECTIONS=["A","B","C","D"];
+const REQ_LIMIT=2;
+const TODAY=new Date().toISOString().slice(0,10);
+const SUBJECTS_LIST=["Mathematics","Science","English","Hindi","Social Science","Physics","Chemistry","Biology","Accounts","Economics","Business Studies","Computer Science","Physical Education","Art","Music"];
+const ALL_CLASSES_LIST=["Nursery","KG","Grade 1","Grade 2","Grade 3","Grade 4","Grade 5","Grade 6","Grade 7","Grade 8","Grade 9","Grade 10","Grade 11","Grade 12"];
+
+const INIT_TEACHERS=[
+  {id:"T001",name:"Mrs. Sunita Sharma",subject:"Mathematics",classes:["Grade 6","Grade 7","Grade 8"],ppd:5,classTeacher:"Grade 7-A",adminRole:null,pw:"pass123"},
+  {id:"T002",name:"Mr. Rajesh Kumar",subject:"Science",classes:["Grade 4","Grade 5","Grade 6"],ppd:5,classTeacher:null,adminRole:"Sports Incharge",pw:"pass123"},
+  {id:"T003",name:"Mrs. Priya Singh",subject:"English",classes:["Grade 9","Grade 10"],ppd:6,classTeacher:"Grade 9-B",adminRole:null,pw:"pass123"},
+  {id:"T004",name:"Mr. Amit Verma",subject:"Physics",classes:["Grade 11","Grade 12"],ppd:6,classTeacher:"Grade 11-A",adminRole:null,pw:"pass123"},
+  {id:"T005",name:"Mrs. Kavita Rao",subject:"Chemistry",classes:["Grade 11","Grade 12"],ppd:6,classTeacher:null,adminRole:"Lab Incharge",pw:"pass123"},
+  {id:"T006",name:"Mr. Deepak Joshi",subject:"Hindi",classes:["Grade 2","Grade 3","Grade 4"],ppd:5,classTeacher:"Grade 3-A",adminRole:null,pw:"pass123"},
+  {id:"T007",name:"Mrs. Anita Gupta",subject:"Social Science",classes:["Grade 7","Grade 8","Grade 9"],ppd:5,classTeacher:"Grade 8-B",adminRole:null,pw:"pass123"},
+  {id:"T008",name:"Mr. Suresh Patel",subject:"Accounts",classes:["Grade 11","Grade 12"],ppd:5,classTeacher:"Grade 12-A",adminRole:null,pw:"pass123"},
+  {id:"T009",name:"Mrs. Meena Tiwari",subject:"Biology",classes:["Grade 11","Grade 12"],ppd:6,classTeacher:null,adminRole:null,pw:"pass123"},
+  {id:"T010",name:"Mr. Vikas Malhotra",subject:"Computer Science",classes:["Grade 9","Grade 10","Grade 11"],ppd:4,classTeacher:"Grade 10-A",adminRole:null,pw:"pass123"},
+];
+const INIT_USERS=[
+  {id:"SUPERADMIN",name:"App Owner (You)",role:"superadmin",pw:"super@secret123"},
+  {id:"ADMIN001",name:"School Principal",role:"admin",pw:"admin@school"},
+];
+
+// ══════════════════════════════════════════════════
+// SUPABASE CONFIG — Fill your keys here (2 lines only)
+// ══════════════════════════════════════════════════
+const SUPA_URL = "https://hbjuqgcownflfrhqyqna.supabase.co";        // e.g. https://abcxyz.supabase.co
+const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhianVxZ2Nvd25mbGZyaHF5cW5hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2NDE5NzYsImV4cCI6MjA5OTIxNzk3Nn0.T8GTv9fxRSdjYrgujZCAc3e8ErzRx6AuUvxwmRGAGwU";   // e.g. eyJhbGci...
+
+const _supa = (SUPA_URL && SUPA_URL !== "YOUR_SUPABASE_URL")
+  ? supabase.createClient(SUPA_URL, SUPA_KEY)
+  : null;
+
+// LS: localStorage fallback (used when Supabase not configured)
+const LS={
+  get:(k,fb)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):fb}catch{return fb}},
+  set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}},
+};
+
+// ── DB: unified read/write — auto uses Supabase if configured, else localStorage ──
+const DB={
+  // teachers
+  async getTeachers(fallback){
+    if(!_supa)return LS.get("sa_teachers",fallback);
+    try{
+      const{data,error}=await _supa.from("teachers").select("*");
+      if(error){console.error("getTeachers:",error);return LS.get("sa_teachers",fallback);}
+      // If Supabase has data, use it; if empty, seed from localStorage/fallback
+      if(data&&data.length>0){
+        const mapped=data.map(r=>({
+          id:r.id,name:r.name,subject:r.subject,
+          classes:r.classes||[],ppd:r.ppd,
+          classTeacher:r.class_teacher,adminRole:r.admin_role,pw:r.pw
+        }));
+        LS.set("sa_teachers",mapped); // keep LS in sync
+        return mapped;
+      }
+      // Supabase empty → seed it from localStorage or fallback
+      const seed=LS.get("sa_teachers",fallback);
+      if(seed&&seed.length>0){
+        const rows=seed.map(t=>({
+          id:t.id,name:t.name,subject:t.subject,
+          classes:t.classes,ppd:t.ppd,
+          class_teacher:t.classTeacher||null,
+          admin_role:t.adminRole||null,pw:t.pw
+        }));
+        await _supa.from("teachers").upsert(rows,{onConflict:"id"});
+      }
+      return seed;
+    }catch(e){console.error("getTeachers error:",e);return LS.get("sa_teachers",fallback);}
+  },
+  async setTeachers(teachers){
+    LS.set("sa_teachers",teachers);
+    if(!_supa)return;
+    try{
+      const rows=teachers.map(t=>({
+        id:t.id,name:t.name,subject:t.subject,
+        classes:t.classes,ppd:t.ppd,
+        class_teacher:t.classTeacher||null,
+        admin_role:t.adminRole||null,
+        pw:t.pw
+      }));
+      // upsert all current teachers
+      const{error}=await _supa.from("teachers").upsert(rows,{onConflict:"id"});
+      if(error)console.error("setTeachers upsert error:",error);
+    }catch(e){console.error("setTeachers error:",e);}
+  },
+
+  // users (admins)
+  async getUsers(fallback){
+    if(!_supa)return LS.get("sa_users",fallback);
+    try{
+      const{data,error}=await _supa.from("users").select("*");
+      if(error){console.error("getUsers:",error);return LS.get("sa_users",fallback);}
+      if(data&&data.length>0){
+        LS.set("sa_users",data);
+        return data;
+      }
+      const seed=LS.get("sa_users",fallback);
+      if(seed&&seed.length>0)await _supa.from("users").upsert(seed,{onConflict:"id"});
+      return seed;
+    }catch(e){console.error("getUsers error:",e);return LS.get("sa_users",fallback);}
+  },
+  async setUsers(users){
+    LS.set("sa_users",users);
+    if(!_supa)return;
+    try{
+      const{error}=await _supa.from("users").upsert(users,{onConflict:"id"});
+      if(error)console.error("setUsers error:",error);
+    }catch(e){console.error("setUsers error:",e);}
+  },
+
+  // attendance (date-keyed)
+  async getAttendance(date,fallback){
+    if(!_supa)return LS.get("sa_att_"+date,fallback);
+    const{data,error}=await _supa.from("attendance").select("*").eq("date",date);
+    if(error||!data?.length)return LS.get("sa_att_"+date,fallback);
+    const map={};
+    data.forEach(r=>{
+      map[r.teacher_id]=r.status;
+      if(r.halfday_from)map[r.teacher_id+"_hf"]=r.halfday_from;
+      if(r.emergency_from)map[r.teacher_id+"_ef"]=r.emergency_from;
+    });
+    return map;
+  },
+  async setAttendance(date,attendance){
+    LS.set("sa_att_"+date,attendance);
+    if(!_supa)return;
+    const rows=Object.entries(attendance)
+      .filter(([k])=>!k.includes("_hf")&&!k.includes("_ef"))
+      .map(([tid,status])=>({
+        teacher_id:tid,date,status,
+        halfday_from:attendance[tid+"_hf"]||null,
+        emergency_from:attendance[tid+"_ef"]||null,
+      }));
+    if(rows.length){
+      const{error}=await _supa.from("attendance").upsert(rows,{onConflict:"teacher_id,date"});
+      if(error)console.error("setAttendance error:",error);
+    }
+  },
+
+  // arrangements
+  async getArrangements(date,fallback){
+    if(!_supa)return LS.get("sa_arr_"+date,fallback);
+    try{
+      const{data,error}=await _supa.from("arrangements").select("*").eq("date",date);
+      if(error){console.error("getArrangements:",error);return LS.get("sa_arr_"+date,fallback);}
+      if(data&&data.length>0){
+        const mapped=data.map(r=>({
+          id:r.id,abId:r.ab_id,abName:r.ab_name,
+          subId:r.sub_id,subName:r.sub_name,
+          class:r.class,section:r.section,
+          period:r.period,status:r.status,abGroup:r.ab_group,date
+        }));
+        LS.set("sa_arr_"+date,mapped);
+        return mapped;
+      }
+      return LS.get("sa_arr_"+date,fallback);
+    }catch(e){console.error("getArrangements:",e);return LS.get("sa_arr_"+date,fallback);}
+  },
+  async setArrangements(date,arrangements){
+    LS.set("sa_arr_"+date,arrangements);
+    if(!_supa)return;
+    try{
+      if(!arrangements.length){
+        // only delete if explicitly empty
+        await _supa.from("arrangements").delete().eq("date",date);
+        return;
+      }
+      const rows=arrangements.map(a=>({
+        id:a.id,date,ab_id:a.abId,ab_name:a.abName,
+        sub_id:a.subId,sub_name:a.subName,
+        class:a.class,section:a.section,
+        period:a.period,status:a.status,ab_group:a.abGroup
+      }));
+      // upsert — safe, no data loss if error
+      const{error}=await _supa.from("arrangements").upsert(rows,{onConflict:"id"});
+      if(error)console.error("setArrangements error:",error);
+    }catch(e){console.error("setArrangements error:",e);}
+  },
+
+  // requests
+  async getRequests(fallback){
+    if(!_supa)return LS.get("sa_req",fallback);
+    try{
+      const{data,error}=await _supa.from("requests").select("*").order("date",{ascending:false});
+      if(error){console.error("getRequests:",error);return LS.get("sa_req",fallback);}
+      if(data&&data.length>0){
+        const mapped=data.map(r=>({
+          id:r.id,
+          teacherId:r.teacher_id,
+          teacherName:r.teacher_name,
+          arrId:r.arr_id,
+          arrInfo:r.arr_info,
+          reason:r.reason,
+          status:r.status,
+          date:r.date,
+          newSub:r.new_sub,
+        }));
+        LS.set("sa_req",mapped);
+        return mapped;
+      }
+      return LS.get("sa_req",fallback);
+    }catch(e){console.error("getRequests error:",e);return LS.get("sa_req",fallback);}
+  },
+  async setRequests(requests){
+    LS.set("sa_req",requests);
+    if(!_supa)return;
+    try{
+      if(!requests.length)return;
+      // Map to exact Supabase column names
+      const rows=requests.map(r=>({
+        id:r.id,
+        teacher_id:r.teacherId,
+        teacher_name:r.teacherName,
+        arr_id:r.arrId,
+        arr_info:r.arrInfo,
+        reason:r.reason,
+        status:r.status,
+        date:r.date,
+        new_sub:r.newSub||null,
+      }));
+      const{error}=await _supa.from("requests").upsert(rows,{onConflict:"id"});
+      if(error)console.error("setRequests error:",error);
+    }catch(e){console.error("setRequests error:",e);}
+  },
+
+  // timetable (single JSON blob)
+  async getTimetable(fallback){
+    if(!_supa)return LS.get("sa_timetable",fallback);
+    try{
+      const{data,error}=await _supa.from("timetable").select("data").eq("id",1).maybeSingle();
+      if(error){console.error("getTimetable:",error);return LS.get("sa_timetable",fallback);}
+      if(data&&data.data){LS.set("sa_timetable",data.data);return data.data;}
+      const seed=LS.get("sa_timetable",fallback);
+      if(seed)await _supa.from("timetable").upsert({id:1,data:seed},{onConflict:"id"});
+      return seed||fallback;
+    }catch(e){console.error("getTimetable error:",e);return LS.get("sa_timetable",fallback);}
+  },
+  async setTimetable(val){
+    LS.set("sa_timetable",val);
+    if(!_supa)return;
+    try{
+      const{error}=await _supa.from("timetable").upsert({id:1,data:val},{onConflict:"id"});
+      if(error)console.error("setTimetable error:",error);
+    }catch(e){console.error("setTimetable error:",e);}
+  },
+
+  // settings
+  async getPPD(fallback){
+    if(!_supa)return LS.get("sa_ppd",fallback);
+    try{
+      const{data,error}=await _supa.from("settings").select("value").eq("key","ppd").maybeSingle();
+      if(error){console.error("getPPD:",error);return LS.get("sa_ppd",fallback);}
+      if(data){const v=parseInt(data.value)||fallback;LS.set("sa_ppd",v);return v;}
+      // seed default
+      const def=LS.get("sa_ppd",fallback);
+      await _supa.from("settings").upsert({key:"ppd",value:String(def)},{onConflict:"key"});
+      return def;
+    }catch(e){console.error("getPPD error:",e);return LS.get("sa_ppd",fallback);}
+  },
+  async setPPD(val){
+    LS.set("sa_ppd",val);
+    if(!_supa)return;
+    try{
+      const{error}=await _supa.from("settings").upsert({key:"ppd",value:String(val)},{onConflict:"key"});
+      if(error)console.error("setPPD error:",error);
+    }catch(e){console.error("setPPD error:",e);}
+  },
+
+  // reasons
+  async getReasons(date,fallback){
+    if(!_supa)return LS.get("sa_reasons_"+date,fallback);
+    const{data,error}=await _supa.from("attendance").select("teacher_id,reason").eq("date",date);
+    if(error||!data)return LS.get("sa_reasons_"+date,fallback);
+    const map={};data.forEach(r=>{if(r.reason)map[r.teacher_id]=r.reason;});
+    return map;
+  },
+  async setReasons(date,reasons){
+    LS.set("sa_reasons_"+date,reasons);
+    if(!_supa)return;
+    const updates=Object.entries(reasons).map(([tid,reason])=>
+      _supa.from("attendance").update({reason}).eq("teacher_id",tid).eq("date",date)
+    );
+    await Promise.all(updates);
+  },
+
+  // att_saved
+  async getAttSaved(date,fallback){
+    if(!_supa)return LS.get("sa_att_saved_"+date,fallback);
+    const{data,error}=await _supa.from("attendance").select("teacher_id").eq("date",date).eq("saved",true);
+    if(error||!data)return LS.get("sa_att_saved_"+date,fallback);
+    const map={};data.forEach(r=>{map[r.teacher_id]=true;});
+    return map;
+  },
+  async setAttSaved(date,saved){
+    LS.set("sa_att_saved_"+date,saved);
+    if(!_supa)return;
+    const updates=Object.entries(saved).filter(([,v])=>v).map(([tid])=>
+      _supa.from("attendance").update({saved:true}).eq("teacher_id",tid).eq("date",date)
+    );
+    await Promise.all(updates);
+  },
+
+  // history
+  getHistory(fallback){return LS.get("sa_history",fallback);},
+  setHistory(val){LS.set("sa_history",val);},
+};
+
+// ── ALGORITHM ──
+function runAlgorithm(teachers,attendance,periodsPerDay,existing=[]){
+  const PPD=periodsPerDay||8;
+  const absent=teachers.filter(t=>["absent","halfday","emergency"].includes(attendance[t.id]));
+  const present=teachers.filter(t=>["present","halfday"].includes(attendance[t.id]));
+  const arr=[...existing];
+  absent.forEach(at=>{
+    const st=attendance[at.id];
+    at.classes.forEach((cls,idx)=>{
+      const period=(idx%PPD)+1;
+      const section=SECTIONS[idx%SECTIONS.length];
+      if(st==="halfday"){
+        const from=parseInt(attendance[at.id+"_hf"]||"5");
+        if(period<from)return;
+      }
+      if(st==="emergency"){
+        const from=parseInt(attendance[at.id+"_ef"]||"1");
+        if(period<from)return;
+      }
+      const abGroup=Object.entries(GROUPS).find(([,cs])=>cs.includes(cls))?.[0];
+      const elig=present.filter(pt=>{
+        if(pt.id===at.id)return false;
+        if(arr.some(a=>a.subId===pt.id&&a.period===period))return false;
+        const assigned=arr.filter(a=>a.subId===pt.id).length;
+        if(assigned>=(PPD-pt.ppd))return false;
+        const ptGroup=Object.entries(GROUPS).find(([,cs])=>pt.classes.some(c=>cs.includes(c)))?.[0];
+        if(abGroup==="Gr11–12"||ptGroup==="Gr11–12")return ptGroup===abGroup;
+        return true;
+      });
+      if(elig.length){
+        const sub=elig.sort((a,b)=>{
+          const af=(PPD-a.ppd)-arr.filter(x=>x.subId===a.id).length;
+          const bf=(PPD-b.ppd)-arr.filter(x=>x.subId===b.id).length;
+          return bf-af;
+        })[0];
+        arr.push({
+          id:`A${Date.now()}${Math.random().toString(36).slice(2,5)}`,
+          abId:at.id,abName:at.name,
+          subId:sub.id,subName:sub.name,
+          class:cls,section,period,
+          status:"active",abGroup,
+        });
+      }
+    });
+  });
+  return arr;
+}
+
+function getGroup(t){
+  return Object.entries(GROUPS).find(([,cs])=>t.classes.some(c=>cs.includes(c)))?.[0];
+}
+
+const s={
+  btn:(v="primary",sz="md")=>{
+    const b={display:"inline-flex",alignItems:"center",gap:6,border:"none",borderRadius:7,
+      fontWeight:500,cursor:"pointer",fontSize:sz==="sm"?11:13,padding:sz==="sm"?"4px 10px":"8px 16px"};
+    if(v==="primary")return{...b,background:C.black,color:C.white};
+    if(v==="secondary")return{...b,background:C.g100,color:C.g700};
+    if(v==="danger")return{...b,background:C.redL,color:C.red};
+    if(v==="success")return{...b,background:C.greenL,color:C.green};
+    if(v==="warning")return{...b,background:C.yellowL,color:C.yellow};
+    if(v==="purple")return{...b,background:C.purpleL,color:C.purple};
+    return b;
+  },
+  bdg:(c,bg)=>({display:"inline-flex",alignItems:"center",gap:4,padding:"3px 8px",borderRadius:20,fontSize:11,fontWeight:600,color:c,background:bg}),
+  inp:{width:"100%",padding:"8px 12px",border:`1px solid ${C.g200}`,borderRadius:7,fontSize:13,color:C.g900,background:C.white,outline:"none"},
+  card:{background:C.white,border:`1px solid ${C.g200}`,borderRadius:10,padding:18},
+  TH:{padding:"8px 12px",textAlign:"left",fontSize:10,fontWeight:600,color:C.g500,textTransform:"uppercase",letterSpacing:"0.05em",borderBottom:`1px solid ${C.g200}`,background:C.g50},
+  TD:{padding:"10px 12px",fontSize:13,color:C.g700,borderBottom:`1px solid ${C.g100}`},
+  ava:(sz=32,bg=C.blue)=>({width:sz,height:sz,borderRadius:"50%",background:bg,display:"flex",alignItems:"center",justifyContent:"center",color:C.white,fontSize:sz*0.4,fontWeight:600,flexShrink:0}),
+};
+
+function Ic({n,sz=16,c="currentColor"}){
+  const P={
+    home:"M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z",
+    users:"M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M23 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75",
+    cal:"M3 4h18v18H3z M16 2v4 M8 2v4 M3 10h18",
+    chk:"M20 6L9 17l-5-5",x:"M18 6L6 18 M6 6l12 12",plus:"M12 5v14 M5 12h14",
+    swap:"M7 16V4m0 0L3 8m4-4l4 4 M17 8v12m0 0l4-4m-4 4l-4-4",
+    alert:"M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z M12 9v4 M12 17h.01",
+    chart:"M18 20V10 M12 20V4 M6 20v-6",
+    bell:"M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9 M13.73 21a2 2 0 0 1-3.46 0",
+    out:"M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4 M16 17l5-5-5-5 M21 12H9",
+    shield:"M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
+    search:"M11 17.5a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13z M21 21l-4.35-4.35",
+    hist:"M12 8v4l3 3 M3.05 11a9 9 0 1 0 .5-3",
+    star:"M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z",
+    emer:"M22 12h-4l-3 9L9 3l-3 9H2",
+    settings:"M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z",
+  };
+  return(
+    <svg width={sz} height={sz} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      {(P[n]||"").split(" M").filter(Boolean).map((d,i)=><path key={i} d={(i===0?"":"M")+d}/>)}
+    </svg>
+  );
+}
+
+function Modal({open,onClose,title,children,w=480}){
+  if(!open)return null;
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,padding:16}}>
+      <div style={{background:C.white,borderRadius:12,width:w,maxWidth:"96vw",maxHeight:"88vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.25)"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"15px 20px",borderBottom:`1px solid ${C.g200}`}}>
+          <div style={{fontSize:15,fontWeight:600}}>{title}</div>
+          <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer"}}><Ic n="x" sz={18} c={C.g500}/></button>
+        </div>
+        <div style={{padding:20}}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════
+// LOGIN — FIX #2: No role toggle, no demo creds, auto-detect
+// ═══════════════════════════════════
+function Login({onLogin,users,teachers}){
+  const[id,setId]=useState("");
+  const[pw,setPw]=useState("");
+  const[err,setErr]=useState("");
+  const go=()=>{
+    setErr("");
+    const u=users.find(x=>x.id===id&&x.pw===pw);
+    if(u){onLogin(u);return;}
+    const t=teachers.find(x=>x.id===id&&x.pw===pw);
+    if(t){onLogin({role:"teacher",...t});return;}
+    setErr("Invalid ID or Password.");
+  };
+  const dk={background:"#1A1A1A",border:"1px solid #2A2A2A",color:C.white};
+  return(
+    <div style={{minHeight:"100vh",background:C.black,display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div style={{width:360}}>
+        <div style={{textAlign:"center",marginBottom:32}}>
+          <div style={{width:48,height:48,borderRadius:12,background:C.white,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 14px"}}>
+            <Ic n="shield" sz={24} c={C.black}/>
+          </div>
+          <div style={{color:C.white,fontSize:22,fontWeight:700,letterSpacing:-0.5}}>SchoolArrange</div>
+          <div style={{color:C.g500,fontSize:12,marginTop:4}}>Teacher Arrangement Management System</div>
+        </div>
+        <div style={{background:"#111",border:"1px solid #222",borderRadius:14,padding:26}}>
+          <div style={{marginBottom:12}}>
+            <div style={{fontSize:11,fontWeight:500,color:C.g400,marginBottom:5}}>ID</div>
+            <input value={id} onChange={e=>setId(e.target.value)} placeholder="Enter your ID" style={{...s.inp,...dk}}/>
+          </div>
+          <div style={{marginBottom:18}}>
+            <div style={{fontSize:11,fontWeight:500,color:C.g400,marginBottom:5}}>Password</div>
+            <input value={pw} onChange={e=>setPw(e.target.value)} type="password" placeholder="••••••••"
+              onKeyDown={e=>e.key==="Enter"&&go()} style={{...s.inp,...dk}}/>
+          </div>
+          {err&&<div style={{background:C.redL,color:C.red,padding:"7px 12px",borderRadius:6,fontSize:12,marginBottom:14}}>{err}</div>}
+          <button onClick={go} style={{...s.btn("primary"),width:"100%",justifyContent:"center",padding:"10px 0"}}>Sign In →</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════
+// SIDEBAR
+// ═══════════════════════════════════
+function Sidebar({user,page,setPage,onLogout}){
+  const adminNav=[
+    {id:"dashboard",l:"Dashboard",n:"home"},
+    {id:"attendance",l:"Mark Attendance",n:"chk"},
+    {id:"arrangements",l:"Arrangements",n:"swap"},
+    {id:"history",l:"Past Days",n:"hist"},
+    {id:"teachers",l:"Teachers",n:"users"},
+    {id:"requests",l:"Change Requests",n:"bell"},
+    {id:"reports",l:"Monthly Reports",n:"chart"},
+    {id:"timetable",l:"Class Timetable",n:"cal"},
+    {id:"settings",l:"Settings",n:"settings"},
+  ];
+  if(user.role==="superadmin")adminNav.push({id:"admins",l:"Manage Admins",n:"star"});
+  const teacherNav=[
+    {id:"dashboard",l:"My Dashboard",n:"home"},
+    {id:"attendance",l:"My Attendance",n:"chk"},
+    {id:"arrangements",l:"My Arrangements",n:"cal"},
+    {id:"requests",l:"Request Change",n:"swap"},
+    {id:"reports",l:"My Report",n:"chart"},
+  ];
+  const nav=user.role==="teacher"?teacherNav:adminNav;
+  const avaBg=user.role==="superadmin"?C.purple:user.role==="admin"?"#333":C.blue;
+  return(
+    <div style={{width:220,minHeight:"100%",background:C.black,display:"flex",flexDirection:"column",flexShrink:0}}>
+      <div style={{padding:"18px 16px 14px",borderBottom:"1px solid #1F1F1F"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <div style={{width:28,height:28,background:C.white,borderRadius:7,display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <Ic n="shield" sz={14} c={C.black}/>
+          </div>
+          <div>
+            <div style={{color:C.white,fontSize:13,fontWeight:600}}>SchoolArrange</div>
+            <div style={{color:C.g500,fontSize:10,marginTop:1}}>
+              {user.role==="superadmin"?"🔑 Super Admin":user.role==="admin"?"School Admin":"Teacher Portal"}
+            </div>
+          </div>
+        </div>
+      </div>
+      <nav style={{padding:"10px 8px",flex:1,overflowY:"auto"}}>
+        {nav.map(item=>(
+          <button key={item.id} onClick={()=>setPage(item.id)}
+            style={{display:"flex",alignItems:"center",gap:9,padding:"8px 11px",borderRadius:6,marginBottom:2,
+              background:page===item.id?"#1A1A1A":"transparent",color:page===item.id?C.white:C.g400,
+              fontSize:12,fontWeight:page===item.id?500:400,border:"none",width:"100%",textAlign:"left"}}>
+            <Ic n={item.n} sz={14} c={page===item.id?C.white:C.g500}/>
+            {item.l}
+          </button>
+        ))}
+      </nav>
+      <div style={{padding:"12px 14px",borderTop:"1px solid #1F1F1F",display:"flex",alignItems:"center",gap:10}}>
+        <div style={{...s.ava(30,avaBg)}}>{user.name?.charAt(0)}</div>
+        <div style={{flex:1,overflow:"hidden"}}>
+          <div style={{fontSize:11,fontWeight:500,color:C.white,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.name?.split(" ").slice(0,2).join(" ")}</div>
+          <div style={{fontSize:9,color:C.g500,textTransform:"capitalize"}}>{user.role}</div>
+        </div>
+        <button onClick={onLogout} style={{background:"none",border:"none",cursor:"pointer"}}><Ic n="out" sz={13} c={C.g500}/></button>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════
+// SETTINGS PAGE — FIX #2(periods), available to both admin roles
+// ═══════════════════════════════════
+function PageSettings({periodsPerDay,setPeriodsPerDay}){
+  const[val,setVal]=useState(periodsPerDay);
+  const[saved,setSaved]=useState(false);
+  const save=()=>{
+    const n=parseInt(val);
+    if(n<4||n>10){alert("Periods must be between 4 and 10.");return;}
+    setPeriodsPerDay(n);
+    LS.set("sa_ppd",n);
+    setSaved(true);
+    setTimeout(()=>setSaved(false),2000);
+  };
+  return(
+    <div>
+      <div style={{fontSize:16,fontWeight:600,marginBottom:4}}>School Settings</div>
+      <div style={{fontSize:12,color:C.g500,marginBottom:20}}>Configure school-wide settings. Changes affect all users.</div>
+      <div style={{...s.card,maxWidth:400}}>
+        <div style={{fontSize:13,fontWeight:600,marginBottom:16}}>Period Configuration</div>
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:12,fontWeight:500,color:C.g600,marginBottom:6}}>Number of Periods per Day</div>
+          <div style={{display:"flex",gap:10,alignItems:"center"}}>
+            <input type="number" min={4} max={10} value={val} onChange={e=>setVal(e.target.value)}
+              style={{...s.inp,width:100}}/>
+            <button onClick={save} style={s.btn("primary")}>
+              <Ic n="chk" sz={13} c={C.white}/> Save
+            </button>
+          </div>
+          {saved&&<div style={{fontSize:12,color:C.green,marginTop:8}}>✓ Saved successfully!</div>}
+          <div style={{fontSize:11,color:C.g500,marginTop:8}}>Current: {periodsPerDay} periods/day · Range: 4–10</div>
+        </div>
+        <div style={{padding:"12px",background:C.g50,borderRadius:8,fontSize:12,color:C.g600,lineHeight:1.8}}>
+          This setting controls how many periods the arrangement algorithm considers per day. It also affects teacher free-period calculations.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════
+// ATTENDANCE PAGE — FIX #3 #4 #5 #8
+// ═══════════════════════════════════
+function PageAttendance({teachers,attendance,setAttendance,onGenerate,arrangements,setArrangements,user,periodsPerDay,reasons,setReasons,attSaved,setAttSaved}){
+
+  const[done,setDone]=useState(arrangements.length>0);
+
+  // FIX #8: properly save reason to parent state and localStorage
+  const saveReason=(tid,reasonText)=>{
+    const updated={...reasons,[tid]:reasonText};
+    setReasons(updated);
+    LS.set("sa_reasons_"+TODAY,updated);
+  };
+
+  const mark=(tid,st)=>setAttendance(p=>({...p,[tid]:st}));
+
+  const generate=()=>{
+    const arr=runAlgorithm(teachers,attendance,periodsPerDay);
+    onGenerate(arr);
+    setDone(true);
+  };
+
+  // ── TEACHER VIEW ──
+  if(user.role==="teacher"){
+    const st=attendance[user.id]||"present";
+    const isSaved=attSaved[user.id];
+
+    // FIX #3: Save attendance, then lock for teacher (admin can still change)
+    const saveMyAttendance=()=>{
+      const updated={...attSaved,[user.id]:true};
+      setAttSaved(updated);
+      LS.set("sa_att_saved_"+TODAY,updated);
+      // Re-generate arrangements after teacher saves
+      if(st!=="present"){
+        const arr=runAlgorithm(teachers,attendance,periodsPerDay);
+        onGenerate(arr);
+      }
+      alert("Attendance saved successfully!");
+    };
+
+    return(
+      <div>
+        <div style={{fontSize:16,fontWeight:600,marginBottom:4}}>My Attendance</div>
+        <div style={{fontSize:12,color:C.g500,marginBottom:18}}>Mark your attendance for today — {TODAY}</div>
+
+        <div style={{...s.card,maxWidth:440}}>
+          <div style={{fontSize:13,fontWeight:600,marginBottom:14}}>Today's Status</div>
+
+          {/* Status buttons — locked after save (admin can override) */}
+          <div style={{display:"flex",gap:8,marginBottom:14}}>
+            {[
+              {v:"present",l:"✓ Present",c:C.green,bg:C.greenL},
+              {v:"halfday",l:"½ Half Day",c:C.yellow,bg:C.yellowL},
+              {v:"absent",l:"✗ Absent",c:C.red,bg:C.redL},
+            ].map(o=>(
+              <button key={o.v} onClick={()=>!isSaved&&mark(user.id,o.v)}
+                style={{flex:1,padding:"10px 6px",borderRadius:8,
+                  border:`2px solid ${st===o.v?o.c:C.g200}`,
+                  fontSize:12,fontWeight:500,
+                  cursor:isSaved?"not-allowed":"pointer",
+                  opacity:isSaved&&st!==o.v?0.5:1,
+                  background:st===o.v?o.bg:C.white,
+                  color:st===o.v?o.c:C.g500}}>
+                {o.l}
+              </button>
+            ))}
+          </div>
+
+          {/* Half day period selector */}
+          {st==="halfday"&&!isSaved&&(
+            <div style={{marginBottom:14}}>
+              <div style={{fontSize:12,fontWeight:500,color:C.g600,marginBottom:6}}>Absent from which period?</div>
+              <select style={s.inp} value={attendance[user.id+"_hf"]||"5"}
+                onChange={e=>setAttendance(p=>({...p,[user.id+"_hf"]:e.target.value}))}>
+                {Array.from({length:periodsPerDay},(_,i)=>i+1).map(p=>(
+                  <option key={p} value={p}>Period {p} onwards</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* FIX #8: Reason box with proper save */}
+          {(st==="absent"||st==="halfday")&&(
+            <div style={{marginBottom:14}}>
+              <div style={{fontSize:12,fontWeight:500,color:C.g600,marginBottom:6}}>Reason for Absence</div>
+              <textarea style={{...s.inp,height:72,resize:"vertical",marginBottom:10}}
+                placeholder="Medical / Personal / Family emergency..."
+                value={reasons[user.id]||""}
+                readOnly={isSaved}
+                onChange={e=>setReasons(p=>({...p,[user.id]:e.target.value}))}/>
+            </div>
+          )}
+
+          {/* FIX #3: Save button */}
+          {!isSaved?(
+            <button onClick={saveMyAttendance}
+              style={{...s.btn("primary"),width:"100%",justifyContent:"center"}}>
+              <Ic n="chk" sz={14} c={C.white}/> Save Attendance
+            </button>
+          ):(
+            <div style={{...s.bdg(C.green,C.greenL),padding:"9px 14px",fontSize:12,justifyContent:"center",width:"100%"}}>
+              <Ic n="chk" sz={13} c={C.green}/> Attendance saved — contact admin to change
+            </div>
+          )}
+        </div>
+
+        {/* FIX #5: Emergency leave — always visible next to attendance card */}
+        <div style={{...s.card,maxWidth:440,marginTop:16,borderLeft:`3px solid ${C.red}`}}>
+          <div style={{fontSize:13,fontWeight:600,marginBottom:8,color:C.red,display:"flex",alignItems:"center",gap:6}}>
+            <Ic n="emer" sz={14} c={C.red}/> Emergency Leave
+          </div>
+          <div style={{fontSize:12,color:C.g500,marginBottom:10}}>Need to leave school urgently mid-day?</div>
+          <div style={{fontSize:12,fontWeight:500,color:C.g600,marginBottom:6}}>Leaving from Period:</div>
+          <select style={{...s.inp,marginBottom:10}}
+            value={attendance[user.id+"_ef"]||""}
+            onChange={e=>setAttendance(p=>({...p,[user.id+"_ef"]:e.target.value}))}>
+            <option value="">-- Select Period --</option>
+            {Array.from({length:periodsPerDay},(_,i)=>i+1).map(p=>(
+              <option key={p} value={p}>Period {p}</option>
+            ))}
+          </select>
+          <textarea style={{...s.inp,height:60,resize:"vertical",marginBottom:10}}
+            placeholder="Reason for emergency..."
+            value={reasons[user.id+"_emer"]||""}
+            onChange={e=>setReasons(p=>({...p,[user.id+"_emer"]:e.target.value}))}/>
+          <button onClick={()=>{
+            const from=attendance[user.id+"_ef"];
+            if(!from){alert("Please select from which period you are leaving.");return;}
+            mark(user.id,"emergency");
+            // FIX #4 #5: remove future arrangements for this teacher, re-generate
+            const fromPeriod=parseInt(from);
+            const filtered=arrangements.filter(a=>!(a.subId===user.id&&a.period>=fromPeriod));
+            const newArr=runAlgorithm(teachers,{...attendance,[user.id]:"emergency"},periodsPerDay,filtered);
+            onGenerate(newArr);
+            // Save reason
+            saveReason(user.id+"_emer",reasons[user.id+"_emer"]||"Emergency");
+            alert("Emergency leave marked. Remaining arrangements updated.");
+          }} style={{...s.btn("danger"),width:"100%",justifyContent:"center"}}>
+            Mark Emergency & Update Arrangements
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── ADMIN VIEW ──
+  const pCount=Object.values(attendance).filter(v=>["present","halfday"].includes(v)&&!v.includes("_")).length;
+  const aCount=teachers.filter(t=>["absent","halfday","emergency"].includes(attendance[t.id])).length;
+
+  return(
+    <div>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+        <div>
+          <div style={{fontSize:16,fontWeight:600}}>Mark Attendance</div>
+          <div style={{fontSize:12,color:C.g500,marginTop:2}}>
+            {pCount} present · {aCount} absent/partial · {TODAY}
+          </div>
+        </div>
+        <button onClick={generate} style={s.btn("primary")}>
+          <Ic n="swap" sz={14} c={C.white}/> Generate Arrangements
+        </button>
+      </div>
+
+      {done&&(
+        <div style={{background:C.greenL,color:C.green,padding:"9px 14px",borderRadius:8,fontSize:12,display:"flex",alignItems:"center",gap:6,marginBottom:14}}>
+          <Ic n="chk" sz={12} c={C.green}/> Arrangements generated and notified to all teachers!
+        </div>
+      )}
+
+      <div style={s.card}>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",minWidth:680}}>
+            <thead>
+              <tr>
+                <th style={s.TH}>Teacher</th>
+                <th style={s.TH}>Subject</th>
+                <th style={s.TH}>PPD</th>
+                <th style={s.TH}>Status</th>
+                <th style={s.TH}>Reason + Save</th>
+              </tr>
+            </thead>
+            <tbody>
+              {teachers.map(t=>{
+                const st=attendance[t.id]||"present";
+                const isSaved=attSaved[t.id];
+                return(
+                  <tr key={t.id}>
+                    <td style={s.TD}>
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        <div style={s.ava(28)}>{t.name.charAt(0)}</div>
+                        <div>
+                          <div style={{fontWeight:500,fontSize:13}}>{t.name}</div>
+                          <div style={{fontSize:10,color:C.g500}}>{t.id}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td style={s.TD}>{t.subject}</td>
+                    <td style={s.TD}>{t.ppd}</td>
+                    <td style={s.TD}>
+                      <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                        {[
+                          {v:"present",l:"P",c:C.green,bg:C.greenL},
+                          {v:"halfday",l:"½",c:C.yellow,bg:C.yellowL},
+                          {v:"absent",l:"A",c:C.red,bg:C.redL},
+                          {v:"emergency",l:"E!",c:C.purple,bg:C.purpleL},
+                        ].map(o=>(
+                          <button key={o.v} onClick={()=>mark(t.id,o.v)}
+                            style={{padding:"3px 8px",borderRadius:5,
+                              border:`1px solid ${st===o.v?o.c:C.g200}`,
+                              fontSize:11,fontWeight:600,cursor:"pointer",
+                              background:st===o.v?o.bg:C.white,
+                              color:st===o.v?o.c:C.g500}}>
+                            {o.l}
+                          </button>
+                        ))}
+                      </div>
+                      {st==="halfday"&&(
+                        <select style={{...s.inp,marginTop:6,fontSize:11,padding:"3px 8px"}}
+                          value={attendance[t.id+"_hf"]||"5"}
+                          onChange={e=>setAttendance(p=>({...p,[t.id+"_hf"]:e.target.value}))}>
+                          {Array.from({length:periodsPerDay},(_,i)=>i+1).map(p=>(
+                            <option key={p} value={p}>From P{p}</option>
+                          ))}
+                        </select>
+                      )}
+                    </td>
+                    {/* FIX #8: Reason with actual save to state+localStorage */}
+                    <td style={s.TD}>
+                      {["absent","halfday","emergency"].includes(st)&&(
+                        <div style={{display:"flex",gap:6,alignItems:"flex-start"}}>
+                          <input style={{...s.inp,width:150,padding:"5px 8px",fontSize:12}}
+                            placeholder="Reason..."
+                            value={reasons[t.id]||""}
+                            onChange={e=>setReasons(p=>({...p,[t.id]:e.target.value}))}/>
+                          <button
+                            onClick={()=>{
+                              saveReason(t.id,reasons[t.id]||"");
+                              // visual feedback
+                              const btn=document.getElementById("rsv_"+t.id);
+                              if(btn){btn.textContent="✓";setTimeout(()=>{if(btn)btn.textContent="Save";},1500);}
+                            }}
+                            style={{...s.btn("success","sm"),flexShrink:0}}>
+                            <span id={"rsv_"+t.id}>Save</span>
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════
+// ARRANGEMENTS — FIX #4 #5: show only relevant arrangements
+// ═══════════════════════════════════
+function PageArrangements({arrangements,setArrangements,teachers,attendance,user,requests,setRequests,attSaved}){
+  // FIX #4: Teacher sees arrangements only after saving attendance
+  // FIX #5: halfday/emergency teacher sees only completed periods; absent sees none as substitute
+  const getMyArrangements=()=>{
+    if(user.role!=="teacher")return arrangements;
+    const st=attendance[user.id]||"present";
+    const saved=attSaved[user.id];
+
+    // FIX #4: Only show if attendance is saved
+    if(!saved&&st==="present")return[];
+    if(st==="absent")return[]; // absent teacher has no arrangements to do
+
+    // FIX #5: halfday — show only periods before halfday_from (periods they completed)
+    if(st==="halfday"){
+      const from=parseInt(attendance[user.id+"_hf"]||"5");
+      // they completed periods 1 to from-1, rest are someone else's
+      return arrangements.filter(a=>a.subId===user.id&&a.period<from);
+    }
+
+    // FIX #5: emergency — show only periods before emergency_from
+    if(st==="emergency"){
+      const from=parseInt(attendance[user.id+"_ef"]||"1");
+      return arrangements.filter(a=>a.subId===user.id&&a.period<from);
+    }
+
+    return arrangements.filter(a=>a.subId===user.id);
+  };
+
+  const my=getMyArrangements();
+  const st=attendance[user.id]||"present";
+  const saved=attSaved[user.id];
+
+  if(user.role==="teacher"&&!saved&&st==="present"){
+    return(
+      <div>
+        <div style={{fontSize:16,fontWeight:600,marginBottom:16}}>My Arrangements</div>
+        <div style={{...s.card,textAlign:"center",padding:50}}>
+          <Ic n="alert" sz={32} c={C.g300}/>
+          <div style={{fontSize:14,fontWeight:500,color:C.g600,marginTop:14}}>Save your attendance first</div>
+          <div style={{fontSize:12,color:C.g400,marginTop:6}}>Go to "My Attendance" and click Save Attendance to see your arrangements.</div>
+        </div>
+      </div>
+    );
+  }
+
+  if(!my.length)return(
+    <div>
+      <div style={{fontSize:16,fontWeight:600,marginBottom:16}}>{user.role==="teacher"?"My Arrangements":"Today's Arrangements"}</div>
+      <div style={{...s.card,textAlign:"center",padding:50}}>
+        <Ic n="cal" sz={32} c={C.g300}/>
+        <div style={{fontSize:13,color:C.g500,marginTop:12}}>
+          {user.role==="teacher"?"No arrangements for you today!":"Generate from Attendance page."}
+        </div>
+      </div>
+    </div>
+  );
+
+  return(
+    <div>
+      <div style={{fontSize:16,fontWeight:600,marginBottom:4}}>{user.role==="teacher"?"My Arrangements":"Today's Arrangements"}</div>
+      <div style={{fontSize:12,color:C.g500,marginBottom:16}}>{my.length} arrangement{my.length!==1?"s":""}</div>
+      {user.role==="teacher"?(
+        my.map(a=>(
+          <div key={a.id} style={{...s.card,borderLeft:`4px solid ${a.status==="reassigned"?C.blue:C.green}`,marginBottom:12}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div>
+                <div style={{fontSize:15,fontWeight:600}}>{a.class} — Section {a.section}</div>
+                <div style={{fontSize:12,color:C.g500,marginTop:4}}>Period {a.period} · Covering for {a.abName}</div>
+              </div>
+              <div style={{textAlign:"right"}}>
+                <span style={s.bdg(a.status==="reassigned"?C.blue:C.green,a.status==="reassigned"?C.blueL:C.greenL)}>
+                  {a.status==="reassigned"?"Reassigned":"Active"}
+                </span>
+                <div style={{fontSize:10,color:C.g400,marginTop:4}}>
+                  {a.status==="reassigned"?"You replaced another teacher":"Originally assigned"}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))
+      ):(
+        <div style={s.card}>
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",minWidth:560}}>
+              <thead><tr>
+                {/* FIX #5: admin sees actual current substitute name */}
+                <th style={s.TH}>Absent Teacher</th>
+                <th style={s.TH}>Current Substitute</th>
+                <th style={s.TH}>Class & Section</th>
+                <th style={s.TH}>Period</th>
+                <th style={s.TH}>Status</th>
+              </tr></thead>
+              <tbody>{my.map(a=>(
+                <tr key={a.id}>
+                  <td style={s.TD}>{a.abName}</td>
+                  <td style={s.TD}>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <div style={s.ava(26)}>{a.subName.charAt(0)}</div>
+                      <div>
+                        <div>{a.subName}</div>
+                        {/* FIX #5: show if teacher went on emergency/halfday */}
+                        {["halfday","emergency"].includes(attendance[a.subId])&&(
+                          <div style={{fontSize:10,color:C.yellow}}>⚠ {attendance[a.subId]}</div>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td style={s.TD}>{a.class} – {a.section}</td>
+                  <td style={s.TD}>Period {a.period}</td>
+                  <td style={s.TD}>
+                    <span style={s.bdg(
+                      a.status==="active"?C.green:a.status==="reassigned"?C.blue:C.yellow,
+                      a.status==="active"?C.greenL:a.status==="reassigned"?C.blueL:C.yellowL
+                    )}>{a.status}</span>
+                  </td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════
+// HISTORY — FIX #9: reasons + present + halfday + emergency breakdown
+// ═══════════════════════════════════
+function PageHistory({history}){
+  const[sel,setSel]=useState("");
+  const dates=Object.keys(history).sort().reverse();
+  const day=history[sel];
+
+  const statusColor=(st)=>{
+    if(st==="present")return{c:C.green,bg:C.greenL};
+    if(st==="halfday")return{c:C.yellow,bg:C.yellowL};
+    if(st==="emergency")return{c:C.purple,bg:C.purpleL};
+    return{c:C.red,bg:C.redL};
+  };
+
+  return(
+    <div>
+      <div style={{fontSize:16,fontWeight:600,marginBottom:4}}>Past Days History</div>
+      <div style={{fontSize:12,color:C.g500,marginBottom:18}}>Full attendance breakdown and arrangements for any past day</div>
+      <select style={{...s.inp,maxWidth:220,marginBottom:20}} value={sel} onChange={e=>setSel(e.target.value)}>
+        <option value="">-- Select a date --</option>
+        {dates.map(d=><option key={d} value={d}>{d}{history[d]?.periodsPerDay?" ("+history[d].periodsPerDay+" periods)":""}</option>)}
+      </select>
+
+      {!sel&&(
+        <div style={{...s.card,textAlign:"center",padding:50}}>
+          <Ic n="hist" sz={32} c={C.g300}/>
+          <div style={{fontSize:13,color:C.g500,marginTop:12}}>Select a date to view records</div>
+        </div>
+      )}
+
+      {sel&&!day&&(
+        <div style={{...s.card,textAlign:"center",padding:40}}>
+          <div style={{fontSize:13,color:C.g500}}>No data saved for this date.</div>
+        </div>
+      )}
+
+      {sel&&day&&(
+        <div>
+          {/* FIX #9: Full attendance breakdown — present, halfday, emergency, absent */}
+          <div style={{...s.card,marginBottom:14}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
+              <div style={{fontSize:13,fontWeight:600}}>Full Attendance — {sel}</div>
+              {day.periodsPerDay&&<span style={{...s.bdg(C.blue,C.blueL),fontSize:12}}>{day.periodsPerDay} Periods that day</span>}
+            </div>
+
+            {/* Summary row */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10,marginBottom:16}}>
+              {[
+                {l:"Present",v:(day.fullList||[]).filter(x=>x.status==="present").length,c:C.green},
+                {l:"Half Day",v:(day.fullList||[]).filter(x=>x.status==="halfday").length,c:C.yellow},
+                {l:"Emergency",v:(day.fullList||[]).filter(x=>x.status==="emergency").length,c:C.purple},
+                {l:"Absent",v:(day.absentList||[]).filter(x=>x.status==="absent").length,c:C.red},
+              ].map(x=>(
+                <div key={x.l} style={{textAlign:"center",padding:"10px",background:C.g50,borderRadius:8}}>
+                  <div style={{fontSize:20,fontWeight:700,color:x.c}}>{x.v}</div>
+                  <div style={{fontSize:10,color:C.g500,marginTop:3}}>{x.l}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Full teacher list */}
+            {day.fullList?.length?(
+              <table style={{width:"100%",borderCollapse:"collapse"}}>
+                <thead><tr>
+                  <th style={s.TH}>Teacher</th>
+                  <th style={s.TH}>Status</th>
+                  <th style={s.TH}>Reason / Note</th>
+                </tr></thead>
+                <tbody>
+                  {day.fullList.map((t,i)=>{
+                    const sc=statusColor(t.status);
+                    return(
+                      <tr key={i}>
+                        <td style={s.TD}>{t.name}</td>
+                        <td style={s.TD}><span style={s.bdg(sc.c,sc.bg)}>{t.status}</span></td>
+                        {/* FIX #2: show reason only if not present */}
+                        <td style={s.TD}>{t.status==="present"?"—":(t.reason||"—")}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            ):(
+              /* Fallback for older history without fullList */
+              <div>
+                <div style={{fontSize:12,fontWeight:600,color:C.g600,marginBottom:8}}>Absent / Partial</div>
+                {!day.absentList?.length
+                  ?<div style={{fontSize:12,color:C.g500}}>All teachers were present.</div>
+                  :<table style={{width:"100%",borderCollapse:"collapse"}}>
+                    <thead><tr><th style={s.TH}>Teacher</th><th style={s.TH}>Status</th><th style={s.TH}>Reason</th></tr></thead>
+                    <tbody>{day.absentList.map((a,i)=>{
+                      const sc=statusColor(a.status);
+                      return(
+                        <tr key={i}>
+                          <td style={s.TD}>{a.name}</td>
+                          <td style={s.TD}><span style={s.bdg(sc.c,sc.bg)}>{a.status}</span></td>
+                          <td style={s.TD}>{a.reason||"—"}</td>
+                        </tr>
+                      );
+                    })}</tbody>
+                  </table>
+                }
+              </div>
+            )}
+          </div>
+
+          {/* Arrangements */}
+          <div style={s.card}>
+            <div style={{fontSize:13,fontWeight:600,marginBottom:12}}>Arrangements ({day.arrangements?.length||0})</div>
+            {!day.arrangements?.length?(
+              <div style={{fontSize:12,color:C.g500}}>No arrangements that day.</div>
+            ):(
+              <table style={{width:"100%",borderCollapse:"collapse"}}>
+                <thead><tr>
+                  <th style={s.TH}>Absent Teacher</th>
+                  <th style={s.TH}>Substitute</th>
+                  <th style={s.TH}>Class</th>
+                  <th style={s.TH}>Period</th>
+                </tr></thead>
+                <tbody>{day.arrangements.map((a,i)=>(
+                  <tr key={i}>
+                    <td style={s.TD}>{a.abName}</td>
+                    <td style={s.TD}>{a.subName}</td>
+                    <td style={s.TD}>{a.class}-{a.section}</td>
+                    <td style={s.TD}>P{a.period}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════
+// TEACHERS — FIX #1 (save works) #6 (admin sees creds view-only)
+// ═══════════════════════════════════
+const EMPTY_T={id:"",name:"",subject:"",classes:[],ppd:5,classTeacher:"",adminRole:"",pw:"pass123"};
+
+function PageTeachers({teachers,setTeachers,user}){
+  const[q,setQ]=useState("");
+  const[showAdd,setShowAdd]=useState(false);
+  const[editId,setEditId]=useState(null);
+  const[editForm,setEditForm]=useState({});
+  const[newForm,setNewForm]=useState({...EMPTY_T});
+  const[tab,setTab]=useState("list");
+  const[showPwMap,setShowPwMap]=useState({});
+
+  const isSA=user.role==="superadmin";
+  const isAdmin=user.role==="admin"||isSA;
+  const filtered=teachers.filter(t=>t.name.toLowerCase().includes(q.toLowerCase())||t.subject.toLowerCase().includes(q.toLowerCase()));
+  const fi={...s.inp,padding:"5px 8px",fontSize:12};
+
+  // FIX #1: Actually save new teacher to state AND localStorage
+  const addTeacher=()=>{
+    if(!newForm.id.trim()||!newForm.name.trim()||!newForm.subject){
+      alert("Teacher ID, Name, and Subject are required.");return;
+    }
+    if(teachers.find(t=>t.id===newForm.id.trim())){
+      alert("A teacher with this ID already exists.");return;
+    }
+    const t={
+      id:newForm.id.trim().toUpperCase(),
+      name:newForm.name.trim(),
+      subject:newForm.subject,
+      classes:newForm.classes,
+      ppd:newForm.ppd,
+      classTeacher:newForm.classTeacher.trim()||null,
+      adminRole:newForm.adminRole.trim()||null,
+      pw:newForm.pw.trim()||"pass123",
+    };
+    const updated=[...teachers,t];
+    setTeachers(updated);
+    LS.set("sa_teachers",updated);
+    // FIX #1: Reset form properly
+    setNewForm({...EMPTY_T});
+    setShowAdd(false);
+    alert("Teacher added successfully!");
+  };
+
+  // FIX #1: Cancel clears form properly
+  const cancelAdd=()=>{
+    setNewForm({...EMPTY_T});
+    setShowAdd(false);
+  };
+
+  const removeTeacher=(id)=>{
+    const t=teachers.find(x=>x.id===id);
+    if(!t)return;
+    const updated=teachers.filter(x=>x.id!==id);
+    setTeachersState(updated);
+    LS.set("sa_teachers",updated);
+    if(_supa)_supa.from("teachers").delete().eq("id",id).then(({error})=>{
+      if(error)console.error("remove error:",error);
+    });
+    if(editId===id){setEditId(null);setEditForm({});}
+  };
+
+  const startEdit=(t)=>{
+    setEditId(t.id);
+    setEditForm({...t,classTeacher:t.classTeacher||"",adminRole:t.adminRole||""});
+  };
+
+  const saveEdit=()=>{
+    if(!editForm.name.trim()){alert("Name cannot be empty.");return;}
+    const updated=teachers.map(t=>t.id===editId?{
+      ...editForm,
+      classTeacher:editForm.classTeacher.trim()||null,
+      adminRole:editForm.adminRole.trim()||null,
+    }:t);
+    setTeachers(updated);
+    LS.set("sa_teachers",updated);
+    setEditId(null);setEditForm({});
+  };
+
+  const toggleCls=(cls,isNew)=>{
+    if(isNew){
+      setNewForm(p=>({...p,classes:p.classes.includes(cls)?p.classes.filter(c=>c!==cls):[...p.classes,cls]}));
+    }else{
+      setEditForm(p=>({...p,classes:p.classes.includes(cls)?p.classes.filter(c=>c!==cls):[...p.classes,cls]}));
+    }
+  };
+
+  return(
+    <div>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+        <div>
+          <div style={{fontSize:16,fontWeight:600}}>Teachers</div>
+          <div style={{fontSize:12,color:C.g500,marginTop:2}}>{teachers.length} teachers</div>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          {/* FIX #6: both admin and superadmin see credentials tab */}
+          {isAdmin&&(
+            <button onClick={()=>setTab(tab==="credentials"?"list":"credentials")}
+              style={s.btn(tab==="credentials"?"primary":"secondary")}>
+              🔑 {tab==="credentials"?"← Back":"View Credentials"}
+            </button>
+          )}
+          {isAdmin&&tab==="list"&&(
+            <button onClick={()=>setShowAdd(!showAdd)} style={s.btn("primary")}>
+              <Ic n="plus" sz={13} c={C.white}/> Add Teacher
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* CREDENTIALS TAB */}
+      {tab==="credentials"&&(
+        <div style={s.card}>
+          <div style={{fontSize:13,fontWeight:600,marginBottom:4}}>Teacher Credentials</div>
+          <div style={{...s.bdg(isSA?C.purple:C.yellow,isSA?C.purpleL:C.yellowL),marginBottom:14,padding:"7px 12px",fontSize:12}}>
+            {isSA?"Super Admin: Can view and edit all credentials":"School Admin: View only — contact Super Admin to edit"}
+          </div>
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",minWidth:500}}>
+              <thead><tr>
+                <th style={s.TH}>Name</th>
+                <th style={s.TH}>Teacher ID</th>
+                <th style={s.TH}>Password</th>
+                {isSA&&<th style={s.TH}>Action</th>}
+              </tr></thead>
+              <tbody>{teachers.map(t=>(
+                <tr key={t.id}>
+                  <td style={s.TD}><div style={{display:"flex",alignItems:"center",gap:8}}><div style={s.ava(26)}>{t.name.charAt(0)}</div>{t.name}</div></td>
+                  <td style={s.TD}>
+                    {isSA&&editId===t.id
+                      ?<input style={{...fi,width:90}} value={editForm.id} onChange={e=>setEditForm(p=>({...p,id:e.target.value}))}/>
+                      :<code style={{fontSize:11,background:C.g100,padding:"2px 6px",borderRadius:4}}>{t.id}</code>}
+                  </td>
+                  <td style={s.TD}>
+                    {isSA&&editId===t.id?(
+                      <input style={{...fi,width:130}} value={editForm.pw} onChange={e=>setEditForm(p=>({...p,pw:e.target.value}))}/>
+                    ):(
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        <code style={{fontSize:11,background:C.g100,padding:"2px 6px",borderRadius:4}}>
+                          {showPwMap[t.id]?t.pw:"••••••••"}
+                        </code>
+                        <button onClick={()=>setShowPwMap(p=>({...p,[t.id]:!p[t.id]}))}
+                          style={{background:"none",border:`1px solid ${C.g200}`,borderRadius:4,padding:"2px 7px",fontSize:10,cursor:"pointer",color:C.g500}}>
+                          {showPwMap[t.id]?"Hide":"Show"}
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                  {isSA&&(
+                    <td style={s.TD}>
+                      {editId===t.id?(
+                        <div style={{display:"flex",gap:5}}>
+                          <button onClick={saveEdit} style={s.btn("success","sm")}><Ic n="chk" sz={11} c={C.green}/> Save</button>
+                          <button onClick={()=>setEditId(null)} style={s.btn("secondary","sm")}>Cancel</button>
+                        </div>
+                      ):(
+                        <div style={{display:"flex",gap:5}}>
+                          <button onClick={()=>startEdit(t)} style={s.btn("secondary","sm")}>Edit</button>
+                          <button onClick={()=>removeTeacher(t.id)} style={s.btn("danger","sm")}><Ic n="x" sz={11} c={C.red}/></button>
+                        </div>
+                      )}
+                    </td>
+                  )}
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ADD FORM — FIX #1 */}
+      {tab==="list"&&showAdd&&(
+        <div style={{...s.card,marginBottom:16}}>
+          <div style={{fontSize:13,fontWeight:600,marginBottom:14}}>Add New Teacher</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:12}}>
+            <div>
+              <div style={{fontSize:11,fontWeight:500,color:C.g600,marginBottom:4}}>Teacher ID *</div>
+              <input style={s.inp} placeholder="e.g. T011" value={newForm.id}
+                onChange={e=>setNewForm(p=>({...p,id:e.target.value}))}/>
+            </div>
+            <div>
+              <div style={{fontSize:11,fontWeight:500,color:C.g600,marginBottom:4}}>Full Name *</div>
+              <input style={s.inp} placeholder="Mrs. ..." value={newForm.name}
+                onChange={e=>setNewForm(p=>({...p,name:e.target.value}))}/>
+            </div>
+            <div>
+              <div style={{fontSize:11,fontWeight:500,color:C.g600,marginBottom:4}}>Subject *</div>
+              <select style={s.inp} value={newForm.subject} onChange={e=>setNewForm(p=>({...p,subject:e.target.value}))}>
+                <option value="">Select subject</option>
+                {SUBJECTS_LIST.map(x=><option key={x}>{x}</option>)}
+              </select>
+            </div>
+            <div>
+              <div style={{fontSize:11,fontWeight:500,color:C.g600,marginBottom:4}}>Periods/Day</div>
+              <input style={s.inp} type="number" min={1} max={10} value={newForm.ppd}
+                onChange={e=>setNewForm(p=>({...p,ppd:+e.target.value}))}/>
+            </div>
+            <div>
+              <div style={{fontSize:11,fontWeight:500,color:C.g600,marginBottom:4}}>Class Teacher Of</div>
+              <input style={s.inp} placeholder="Grade 7-A (or blank)" value={newForm.classTeacher}
+                onChange={e=>setNewForm(p=>({...p,classTeacher:e.target.value}))}/>
+            </div>
+            <div>
+              <div style={{fontSize:11,fontWeight:500,color:C.g600,marginBottom:4}}>Admin Role (optional)</div>
+              <input style={s.inp} placeholder="Sports Incharge..." value={newForm.adminRole}
+                onChange={e=>setNewForm(p=>({...p,adminRole:e.target.value}))}/>
+            </div>
+            <div>
+              <div style={{fontSize:11,fontWeight:500,color:C.g600,marginBottom:4}}>Password</div>
+              <input style={s.inp} value={newForm.pw}
+                onChange={e=>setNewForm(p=>({...p,pw:e.target.value}))}/>
+            </div>
+          </div>
+          <div style={{marginBottom:14}}>
+            <div style={{fontSize:11,fontWeight:500,color:C.g600,marginBottom:8}}>Classes Teaching</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+              {ALL_CLASSES_LIST.map(c=>(
+                <label key={c} style={{display:"flex",alignItems:"center",gap:4,fontSize:12,cursor:"pointer",
+                  padding:"3px 10px",borderRadius:5,
+                  border:`1px solid ${newForm.classes.includes(c)?C.blue:C.g200}`,
+                  background:newForm.classes.includes(c)?C.blueL:C.white,
+                  color:newForm.classes.includes(c)?C.blue:C.g600}}>
+                  <input type="checkbox" style={{display:"none"}} checked={newForm.classes.includes(c)}
+                    onChange={()=>toggleCls(c,true)}/>
+                  {c}
+                </label>
+              ))}
+            </div>
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={addTeacher} style={s.btn("primary")}>
+              <Ic n="chk" sz={13} c={C.white}/> Save Teacher
+            </button>
+            <button onClick={cancelAdd} style={s.btn("secondary")}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* TEACHER LIST */}
+      {tab==="list"&&(
+        <div style={s.card}>
+          <div style={{position:"relative",marginBottom:14}}>
+            <input style={{...s.inp,paddingLeft:34}} placeholder="Search by name or subject..."
+              value={q} onChange={e=>setQ(e.target.value)}/>
+            <div style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)"}}><Ic n="search" sz={14} c={C.g400}/></div>
+          </div>
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",minWidth:640}}>
+              <thead><tr>
+                <th style={s.TH}>Teacher</th>
+                <th style={s.TH}>Subject</th>
+                <th style={s.TH}>Class Teacher Of</th>
+                <th style={s.TH}>PPD</th>
+                <th style={s.TH}>Admin Role</th>
+                {isAdmin&&<th style={s.TH}>Action</th>}
+              </tr></thead>
+              <tbody>{filtered.map(t=>(
+                <tr key={t.id}>
+                  {editId===t.id&&isSA?(
+                    <>
+                      <td style={s.TD}>
+                        <input style={{...fi,width:160}} value={editForm.name}
+                          onChange={e=>setEditForm(p=>({...p,name:e.target.value}))}/>
+                      </td>
+                      <td style={s.TD}>
+                        <select style={{...fi,width:130}} value={editForm.subject}
+                          onChange={e=>setEditForm(p=>({...p,subject:e.target.value}))}>
+                          {SUBJECTS_LIST.map(x=><option key={x}>{x}</option>)}
+                        </select>
+                      </td>
+                      <td style={s.TD}>
+                        <input style={{...fi,width:110}} value={editForm.classTeacher}
+                          placeholder="Grade 7-A"
+                          onChange={e=>setEditForm(p=>({...p,classTeacher:e.target.value}))}/>
+                      </td>
+                      <td style={s.TD}>
+                        <input style={{...fi,width:50}} type="number" min={1} max={10} value={editForm.ppd}
+                          onChange={e=>setEditForm(p=>({...p,ppd:+e.target.value}))}/>
+                      </td>
+                      <td style={s.TD}>
+                        <input style={{...fi,width:120}} value={editForm.adminRole}
+                          placeholder="Optional"
+                          onChange={e=>setEditForm(p=>({...p,adminRole:e.target.value}))}/>
+                      </td>
+                      <td style={s.TD}>
+                        <div style={{display:"flex",gap:5}}>
+                          <button onClick={saveEdit} style={s.btn("success","sm")}><Ic n="chk" sz={11} c={C.green}/> Save</button>
+                          <button onClick={()=>setEditId(null)} style={s.btn("secondary","sm")}>Cancel</button>
+                        </div>
+                      </td>
+                    </>
+                  ):(
+                    <>
+                      <td style={s.TD}>
+                        <div style={{display:"flex",alignItems:"center",gap:8}}>
+                          <div style={s.ava(30)}>{t.name.charAt(0)}</div>
+                          <div><div style={{fontWeight:500}}>{t.name}</div><div style={{fontSize:10,color:C.g500}}>{t.id}</div></div>
+                        </div>
+                      </td>
+                      <td style={s.TD}>{t.subject}</td>
+                      <td style={s.TD}>{t.classTeacher
+                        ?<span style={s.bdg(C.blue,C.blueL)}>{t.classTeacher}</span>
+                        :<span style={{fontSize:11,color:C.g400,fontWeight:500}}>NO CLASS TEACHER</span>}
+                      </td>
+                      <td style={s.TD}>{t.ppd}</td>
+                      <td style={s.TD}>{t.adminRole
+                        ?<span style={s.bdg(C.purple,C.purpleL)}>{t.adminRole}</span>
+                        :<span style={{color:C.g400,fontSize:12}}>—</span>}
+                      </td>
+                      {isAdmin&&(
+                        <td style={s.TD}>
+                          <div style={{display:"flex",gap:5}}>
+                            {isSA&&<button onClick={()=>startEdit(t)} style={s.btn("secondary","sm")}>Edit</button>}
+                            <button
+                              onClick={(e)=>{e.preventDefault();e.stopPropagation();removeTeacher(t.id);}}
+                              style={s.btn("danger","sm")}>
+                              <Ic n="x" sz={11} c={C.red}/> Remove
+                            </button>
+                          </div>
+                        </td>
+                      )}
+                    </>
+                  )}
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════
+// REQUESTS
+// ═══════════════════════════════════
+function PageRequests({requests,setRequests,arrangements,setArrangements,teachers,attendance,user,periodsPerDay}){
+  const[showForm,setShowForm]=useState(false);
+  const[form,setForm]=useState({arrId:"",reason:""});
+  const[volModal,setVolModal]=useState(null);
+  const myMonth=requests.filter(r=>r.teacherId===user.id&&r.date?.slice(0,7)===TODAY.slice(0,7)).length;
+  const myArr=arrangements.filter(a=>a.subId===user.id);
+  const isAdmin=user.role==="admin"||user.role==="superadmin";
+
+  const submit=()=>{
+    if(!form.arrId||!form.reason)return;
+    const a=arrangements.find(x=>x.id===form.arrId);
+    if(!a)return;
+    setRequests(p=>[...p,{
+      id:`R${Date.now()}`,teacherId:user.id,teacherName:user.name,
+      arrId:form.arrId,arrInfo:`${a.class}-${a.section}, P${a.period}`,
+      reason:form.reason,status:"pending",date:new Date().toISOString(),
+    }]);
+    setForm({arrId:"",reason:""});setShowForm(false);
+  };
+
+  const handleAction=(reqId,action)=>{
+    const req=requests.find(r=>r.id===reqId);
+    if(!req)return;
+    if(action==="rejected"){
+      setRequests(p=>p.map(r=>r.id===reqId?{...r,status:"rejected"}:r));return;
+    }
+    const arr=arrangements.find(a=>a.id===req.arrId);
+    if(!arr){alert("Arrangement not found.");return;}
+    const absentIds=Object.keys(attendance).filter(k=>!k.includes("_")&&["absent","emergency"].includes(attendance[k]));
+    const PPD=periodsPerDay||8;
+    const elig=teachers.filter(pt=>{
+      if(pt.id===arr.subId)return false;
+      if(absentIds.includes(pt.id))return false;
+      if(arrangements.some(a=>a.subId===pt.id&&a.period===arr.period&&a.id!==arr.id))return false;
+      const assigned=arrangements.filter(a=>a.subId===pt.id).length;
+      if(assigned>=(PPD-pt.ppd))return false;
+      const ptGroup=getGroup(pt);
+      if(arr.abGroup==="Gr11–12"||ptGroup==="Gr11–12")return ptGroup===arr.abGroup;
+      return true;
+    });
+    if(!elig.length){
+      alert("No eligible substitute. Rejecting.");
+      setRequests(p=>p.map(r=>r.id===reqId?{...r,status:"rejected",note:"No sub available"}:r));return;
+    }
+    const newSub=elig[0];
+    setArrangements(p=>p.map(a=>a.id===arr.id?{...a,subId:newSub.id,subName:newSub.name,status:"reassigned"}:a));
+    setRequests(p=>p.map(r=>r.id===reqId?{...r,status:"approved",newSub:newSub.name}:r));
+  };
+
+  const openVol=(req)=>{
+    const arr=arrangements.find(a=>a.id===req.arrId);
+    if(!arr)return;
+    const elig=teachers.filter(t=>{
+      if(t.id===req.teacherId||t.id===arr.subId)return false;
+      if(["absent","emergency"].includes(attendance[t.id]))return false;
+      const tg=getGroup(t);
+      if(arr.abGroup==="Gr11–12"||tg==="Gr11–12")return tg===arr.abGroup;
+      return true;
+    });
+    setVolModal({req,arr,elig});
+  };
+
+  const assignVol=(req,arr,t)=>{
+    setArrangements(p=>p.map(a=>a.id===arr.id?{...a,subId:t.id,subName:t.name,status:"reassigned"}:a));
+    setRequests(p=>p.map(r=>r.id===req.id?{...r,status:"approved",newSub:t.name,volunteer:true}:r));
+    setVolModal(null);
+  };
+
+  const list=isAdmin?requests:requests.filter(r=>r.teacherId===user.id);
+
+  // FIX #3: Group requests by date header (Today / Yesterday / older)
+  const YESTERDAY=new Date(Date.now()-86400000).toISOString().slice(0,10);
+  const getDateLabel=(dateStr)=>{
+    if(!dateStr)return"Older";
+    const d=dateStr.slice(0,10);
+    if(d===TODAY)return"Today";
+    if(d===YESTERDAY)return"Yesterday";
+    return d;
+  };
+  // Build grouped list for admin view
+  const groupedRequests=()=>{
+    const groups={};
+    list.forEach(r=>{
+      const lbl=getDateLabel(r.date);
+      if(!groups[lbl])groups[lbl]=[];
+      groups[lbl].push(r);
+    });
+    // Order: Today first, Yesterday second, rest by date desc
+    const order=["Today","Yesterday"];
+    const keys=[...order.filter(k=>groups[k]),...Object.keys(groups).filter(k=>!order.includes(k)).sort().reverse()];
+    return keys.map(k=>({label:k,items:groups[k]}));
+  };
+
+  return(
+    <div>
+      <Modal open={!!volModal} onClose={()=>setVolModal(null)} title="Ask for Volunteer">
+        {volModal&&(
+          <div>
+            <div style={{fontSize:13,color:C.g600,marginBottom:16,padding:"10px 14px",background:C.g50,borderRadius:8}}>
+              <strong>Arrangement:</strong> {volModal.arr.class}-{volModal.arr.section}, Period {volModal.arr.period}<br/>
+              <strong>Group:</strong> {volModal.arr.abGroup}
+            </div>
+            {!volModal.elig.length
+              ?<div style={{textAlign:"center",padding:24,color:C.g400}}>No teachers available in this group.</div>
+              :volModal.elig.map(t=>(
+                <div key={t.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 0",borderBottom:`1px solid ${C.g100}`}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10}}>
+                    <div style={s.ava(30)}>{t.name.charAt(0)}</div>
+                    <div><div style={{fontSize:13,fontWeight:500}}>{t.name}</div><div style={{fontSize:11,color:C.g500}}>{t.subject}</div></div>
+                  </div>
+                  <button onClick={()=>assignVol(volModal.req,volModal.arr,t)} style={s.btn("success","sm")}>Assign</button>
+                </div>
+              ))
+            }
+          </div>
+        )}
+      </Modal>
+
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+        <div>
+          <div style={{fontSize:16,fontWeight:600}}>{isAdmin?"Change Requests":"My Change Requests"}</div>
+          <div style={{fontSize:12,color:C.g500,marginTop:2}}>
+            {user.role==="teacher"?`${myMonth}/${REQ_LIMIT} requests used this month`:`${requests.filter(r=>r.status==="pending").length} pending`}
+          </div>
+        </div>
+        {user.role==="teacher"&&myMonth<REQ_LIMIT&&myArr.length>0&&(
+          <button onClick={()=>setShowForm(!showForm)} style={s.btn("primary")}>
+            <Ic n="plus" sz={13} c={C.white}/> New Request
+          </button>
+        )}
+      </div>
+
+      {user.role==="teacher"&&myMonth>=REQ_LIMIT&&(
+        <div style={{background:C.yellowL,color:C.yellow,padding:"9px 14px",borderRadius:8,fontSize:12,marginBottom:14,display:"flex",gap:6,alignItems:"center"}}>
+          <Ic n="alert" sz={12} c={C.yellow}/> Monthly limit (2/month) reached. Resets next month.
+        </div>
+      )}
+
+      {showForm&&(
+        <div style={{...s.card,marginBottom:16}}>
+          <div style={{fontSize:13,fontWeight:600,marginBottom:12}}>Submit Change Request</div>
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <div>
+              <div style={{fontSize:11,fontWeight:500,color:C.g600,marginBottom:5}}>Select Arrangement</div>
+              <select style={s.inp} value={form.arrId} onChange={e=>setForm(p=>({...p,arrId:e.target.value}))}>
+                <option value="">-- Select --</option>
+                {myArr.map(a=><option key={a.id} value={a.id}>{a.class}-{a.section}, Period {a.period}</option>)}
+              </select>
+            </div>
+            <div>
+              <div style={{fontSize:11,fontWeight:500,color:C.g600,marginBottom:5}}>Reason</div>
+              <textarea style={{...s.inp,height:70,resize:"vertical"}} placeholder="Explain your reason..."
+                value={form.reason} onChange={e=>setForm(p=>({...p,reason:e.target.value}))}/>
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={submit} style={s.btn("primary")}>Submit</button>
+              <button onClick={()=>setShowForm(false)} style={s.btn("secondary")}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div>
+        {!list.length?(
+          <div style={{...s.card,textAlign:"center",padding:40,color:C.g400,fontSize:12}}>No requests yet</div>
+        ):isAdmin?(
+          /* FIX #3: Admin sees Today / Yesterday / date grouped headers */
+          groupedRequests().map(group=>(
+            <div key={group.label} style={{marginBottom:20}}>
+              <div style={{fontSize:12,fontWeight:600,color:C.g500,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8,paddingLeft:2}}>
+                {group.label} · {group.items.length} request{group.items.length!==1?"s":""}
+              </div>
+              <div style={{...s.card,padding:0,overflow:"hidden"}}>
+                <div style={{overflowX:"auto"}}>
+                  <table style={{width:"100%",borderCollapse:"collapse",minWidth:580}}>
+                    <thead><tr>
+                      <th style={s.TH}>Teacher</th>
+                      <th style={s.TH}>Arrangement</th>
+                      <th style={s.TH}>Reason</th>
+                      <th style={s.TH}>Status</th>
+                      <th style={s.TH}>Actions</th>
+                    </tr></thead>
+                    <tbody>{group.items.map(r=>(
+                      <tr key={r.id}>
+                        <td style={s.TD}>{r.teacherName}</td>
+                        <td style={s.TD}>{r.arrInfo}</td>
+                        <td style={s.TD}>{r.reason}</td>
+                        <td style={s.TD}>
+                          <span style={s.bdg(
+                            r.status==="pending"?C.yellow:r.status==="approved"?C.green:C.red,
+                            r.status==="pending"?C.yellowL:r.status==="approved"?C.greenL:C.redL
+                          )}>
+                            {r.status}{r.newSub?` → ${r.newSub}`:""}
+                          </span>
+                        </td>
+                        <td style={s.TD}>
+                          {r.status==="pending"?(
+                            <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                              <button onClick={()=>handleAction(r.id,"approved")} style={s.btn("success","sm")}><Ic n="chk" sz={11} c={C.green}/> Approve</button>
+                              <button onClick={()=>handleAction(r.id,"rejected")} style={s.btn("danger","sm")}><Ic n="x" sz={11} c={C.red}/> Reject</button>
+                              <button onClick={()=>openVol(r)} style={s.btn("warning","sm")}>Volunteer</button>
+                            </div>
+                          ):<span style={{color:C.g400,fontSize:12}}>—</span>}
+                        </td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          ))
+        ):(
+          /* Teacher sees flat list */
+          <div style={s.card}>
+            <div style={{overflowX:"auto"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",minWidth:480}}>
+                <thead><tr>
+                  <th style={s.TH}>Arrangement</th>
+                  <th style={s.TH}>Reason</th>
+                  <th style={s.TH}>Status</th>
+                </tr></thead>
+                <tbody>{list.map(r=>(
+                  <tr key={r.id}>
+                    <td style={s.TD}>{r.arrInfo}</td>
+                    <td style={s.TD}>{r.reason}</td>
+                    <td style={s.TD}>
+                      <span style={s.bdg(
+                        r.status==="pending"?C.yellow:r.status==="approved"?C.green:C.red,
+                        r.status==="pending"?C.yellowL:r.status==="approved"?C.greenL:C.redL
+                      )}>
+                        {r.status}{r.newSub?` → ${r.newSub}`:""}
+                      </span>
+                    </td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════
+// REPORTS
+// ═══════════════════════════════════
+function PageReports({teachers,arrangements,requests,user}){
+  const[sel,setSel]=useState(user.role==="teacher"?user.id:"all");
+  const month=new Date().toLocaleString("default",{month:"long",year:"numeric"});
+  const isAdmin=user.role==="admin"||user.role==="superadmin";
+  const getRep=(t)=>{
+    const seed=t.id.charCodeAt(1);
+    const pres=18+(seed%6);const abs=26-pres;
+    const arr=arrangements.filter(a=>a.subId===t.id).length+(seed%3);
+    const req=requests.filter(r=>r.teacherId===t.id).length;
+    return{present:pres,absent:abs,pct:Math.round((pres/26)*100),arr,req};
+  };
+  const list=user.role==="teacher"?teachers.filter(t=>t.id===user.id):(sel==="all"?teachers:teachers.filter(t=>t.id===sel));
+  return(
+    <div>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+        <div><div style={{fontSize:16,fontWeight:600}}>Monthly Reports</div><div style={{fontSize:12,color:C.g500,marginTop:2}}>{month}</div></div>
+        {isAdmin&&(
+          <select style={{...s.inp,width:200}} value={sel} onChange={e=>setSel(e.target.value)}>
+            <option value="all">All Teachers</option>
+            {teachers.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        )}
+      </div>
+      {list.map(t=>{
+        const r=getRep(t);
+        return(
+          <div key={t.id} style={{...s.card,marginBottom:14}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
+              <div style={{display:"flex",alignItems:"center",gap:12}}>
+                <div style={s.ava(38)}>{t.name.charAt(0)}</div>
+                <div>
+                  <div style={{fontWeight:600,fontSize:14}}>{t.name}</div>
+                  <div style={{fontSize:11,color:C.g500}}>{t.subject} · {t.id}</div>
+                  {t.classTeacher&&<div style={{fontSize:10,color:C.blue,marginTop:2}}>Class Teacher: {t.classTeacher}</div>}
+                </div>
+              </div>
+              <span style={s.bdg(r.pct>=90?C.green:r.pct>=75?C.yellow:C.red,r.pct>=90?C.greenL:r.pct>=75?C.yellowL:C.redL)}>{r.pct}% Attendance</span>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10,marginBottom:14}}>
+              {[{l:"Days Present",v:r.present,c:C.green},{l:"Days Absent",v:r.absent,c:C.red},{l:"Arrangements Done",v:r.arr,c:C.blue},{l:"Change Requests",v:r.req,c:C.yellow}].map(x=>(
+                <div key={x.l} style={{textAlign:"center",padding:"10px",background:C.g50,borderRadius:8}}>
+                  <div style={{fontSize:20,fontWeight:700,color:x.c}}>{x.v}</div>
+                  <div style={{fontSize:10,color:C.g500,marginTop:3}}>{x.l}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{height:5,background:C.g100,borderRadius:3,overflow:"hidden"}}>
+              <div style={{height:"100%",borderRadius:3,width:`${r.pct}%`,background:r.pct>=90?C.green:r.pct>=75?C.yellow:C.red}}/>
+            </div>
+            {t.adminRole&&<div style={{marginTop:10,padding:"7px 12px",background:C.blueL,borderRadius:6,fontSize:11,color:C.blue}}>Also serving as: <strong>{t.adminRole}</strong></div>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════
+// MANAGE ADMINS — Super Admin only
+// ═══════════════════════════════════
+function PageAdmins({users,setUsers}){
+  const[showAdd,setShowAdd]=useState(false);
+  const[form,setForm]=useState({id:"",name:"",pw:""});
+  const[editId,setEditId]=useState(null);
+  const[editForm,setEditForm]=useState({});
+  const[showPw,setShowPw]=useState({});
+  const admins=users.filter(u=>u.role==="admin");
+  const fi={...s.inp,padding:"5px 8px",fontSize:12};
+
+  const add=()=>{
+    if(!form.id||!form.name||!form.pw){alert("Fill all fields.");return;}
+    if(users.find(u=>u.id===form.id)){alert("ID already exists.");return;}
+    const updated=[...users,{...form,role:"admin"}];
+    setUsers(updated);LS.set("sa_users",updated);
+    setForm({id:"",name:"",pw:""});setShowAdd(false);
+  };
+  const remove=(id)=>{
+    const updated=users.filter(u=>u.id!==id);
+    setUsers(updated);LS.set("sa_users",updated);
+    if(editId===id)setEditId(null);
+  };
+  const startEdit=(a)=>{setEditId(a.id);setEditForm({...a});};
+  const saveEdit=()=>{
+    if(!editForm.name||!editForm.pw){alert("Name and password required.");return;}
+    const updated=users.map(u=>u.id===editId?{...u,name:editForm.name,pw:editForm.pw}:u);
+    setUsers(updated);LS.set("sa_users",updated);
+    setEditId(null);setEditForm({});
+  };
+
+  return(
+    <div>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+        <div>
+          <div style={{fontSize:16,fontWeight:600}}>Manage School Admins</div>
+          <div style={{fontSize:12,color:C.g500,marginTop:2}}>Only you (Super Admin) can add, edit or remove admins.</div>
+        </div>
+        <button onClick={()=>setShowAdd(!showAdd)} style={s.btn("primary")}><Ic n="plus" sz={13} c={C.white}/> Add Admin</button>
+      </div>
+
+      {showAdd&&(
+        <div style={{...s.card,marginBottom:16}}>
+          <div style={{fontSize:13,fontWeight:600,marginBottom:12}}>Add New School Admin</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+            <div><div style={{fontSize:11,fontWeight:500,color:C.g600,marginBottom:5}}>Admin ID</div><input style={s.inp} placeholder="ADMIN002" value={form.id} onChange={e=>setForm(p=>({...p,id:e.target.value.toUpperCase()}))}/></div>
+            <div><div style={{fontSize:11,fontWeight:500,color:C.g600,marginBottom:5}}>Full Name</div><input style={s.inp} placeholder="Vice Principal" value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></div>
+            <div><div style={{fontSize:11,fontWeight:500,color:C.g600,marginBottom:5}}>Password</div><input style={s.inp} value={form.pw} onChange={e=>setForm(p=>({...p,pw:e.target.value}))}/></div>
+          </div>
+          <div style={{display:"flex",gap:8,marginTop:12}}>
+            <button onClick={add} style={s.btn("primary")}>Save Admin</button>
+            <button onClick={()=>setShowAdd(false)} style={s.btn("secondary")}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      <div style={s.card}>
+        <div style={{fontSize:13,fontWeight:600,marginBottom:14}}>Current School Admins</div>
+        {!admins.length?<div style={{textAlign:"center",padding:30,color:C.g400,fontSize:12}}>No school admins yet.</div>:(
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",minWidth:520}}>
+              <thead><tr><th style={s.TH}>Name</th><th style={s.TH}>Admin ID</th><th style={s.TH}>Password</th><th style={s.TH}>Actions</th></tr></thead>
+              <tbody>{admins.map(a=>(
+                <tr key={a.id}>
+                  {editId===a.id?(
+                    <>
+                      <td style={s.TD}><input style={{...fi,width:160}} value={editForm.name} onChange={e=>setEditForm(p=>({...p,name:e.target.value}))}/></td>
+                      <td style={s.TD}><code style={{fontSize:11,background:C.g100,padding:"2px 6px",borderRadius:4}}>{a.id}</code></td>
+                      <td style={s.TD}><input style={{...fi,width:150}} value={editForm.pw} onChange={e=>setEditForm(p=>({...p,pw:e.target.value}))}/></td>
+                      <td style={s.TD}><div style={{display:"flex",gap:5}}><button onClick={saveEdit} style={s.btn("success","sm")}><Ic n="chk" sz={11} c={C.green}/> Save</button><button onClick={()=>setEditId(null)} style={s.btn("secondary","sm")}>Cancel</button></div></td>
+                    </>
+                  ):(
+                    <>
+                      <td style={s.TD}><div style={{display:"flex",alignItems:"center",gap:10}}><div style={s.ava(30,"#333")}>{a.name.charAt(0)}</div><span style={{fontWeight:500}}>{a.name}</span></div></td>
+                      <td style={s.TD}><code style={{fontSize:11,background:C.g100,padding:"2px 6px",borderRadius:4}}>{a.id}</code></td>
+                      <td style={s.TD}>
+                        <div style={{display:"flex",alignItems:"center",gap:8}}>
+                          <code style={{fontSize:11,background:C.g100,padding:"2px 6px",borderRadius:4}}>{showPw[a.id]?a.pw:"••••••••"}</code>
+                          <button onClick={()=>setShowPw(p=>({...p,[a.id]:!p[a.id]}))} style={{background:"none",border:`1px solid ${C.g200}`,borderRadius:4,padding:"2px 7px",fontSize:10,cursor:"pointer",color:C.g500}}>{showPw[a.id]?"Hide":"Show"}</button>
+                        </div>
+                      </td>
+                      <td style={s.TD}><div style={{display:"flex",gap:5}}><button onClick={()=>startEdit(a)} style={s.btn("secondary","sm")}>Edit</button><button onClick={()=>remove(a.id)} style={s.btn("danger","sm")}><Ic n="x" sz={11} c={C.red}/> Remove</button></div></td>
+                    </>
+                  )}
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        )}
+      </div>
+      <div style={{...s.card,marginTop:16,borderLeft:`3px solid ${C.purple}`}}>
+        <div style={{fontSize:12,fontWeight:600,color:C.purple,marginBottom:8}}>🔑 Super Admin Privileges</div>
+        <div style={{fontSize:12,color:C.g600,lineHeight:2}}>✅ Add/Edit/Remove school admins and their passwords<br/>✅ View and edit all teacher credentials<br/>❌ School admins CANNOT add other admins or change Super Admin password</div>
+      </div>
+
+      {/* Change Super Admin Credentials */}
+      <SuperAdminCredEditor users={users} setUsers={setUsers}/>
+    </div>
+  );
+}
+
+function SuperAdminCredEditor({users,setUsers}){
+  const sa=users.find(u=>u.role==="superadmin");
+  const[form,setForm]=useState({id:sa?.id||"",name:sa?.name||"",pw:sa?.pw||""});
+  const[saved,setSaved]=useState(false);
+  const[showPw,setShowPw]=useState(false);
+
+  const save=()=>{
+    if(!form.id.trim()||!form.name.trim()||!form.pw.trim()){alert("All fields required.");return;}
+    const updated=users.map(u=>u.role==="superadmin"?{...u,id:form.id.trim(),name:form.name.trim(),pw:form.pw.trim()}:u);
+    setUsers(updated);
+    LS.set("sa_users",updated);
+    setSaved(true);
+    setTimeout(()=>setSaved(false),2500);
+  };
+
+  return(
+    <div style={{...s.card,marginTop:16,borderLeft:`3px solid ${C.purple}`}}>
+      <div style={{fontSize:13,fontWeight:600,color:C.purple,marginBottom:4}}>🔑 Change My (Super Admin) Credentials</div>
+      <div style={{fontSize:11,color:C.g500,marginBottom:14}}>Only you can see and change this. School admins cannot access this.</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}}>
+        <div>
+          <div style={{fontSize:11,fontWeight:500,color:C.g600,marginBottom:5}}>Login ID</div>
+          <input style={s.inp} value={form.id} onChange={e=>setForm(p=>({...p,id:e.target.value}))}/>
+        </div>
+        <div>
+          <div style={{fontSize:11,fontWeight:500,color:C.g600,marginBottom:5}}>Display Name</div>
+          <input style={s.inp} value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/>
+        </div>
+        <div>
+          <div style={{fontSize:11,fontWeight:500,color:C.g600,marginBottom:5}}>Password</div>
+          <div style={{display:"flex",gap:6}}>
+            <input style={{...s.inp,flex:1}} type={showPw?"text":"password"} value={form.pw}
+              onChange={e=>setForm(p=>({...p,pw:e.target.value}))}/>
+            <button onClick={()=>setShowPw(p=>!p)}
+              style={{...s.btn("secondary","sm"),flexShrink:0}}>
+              {showPw?"Hide":"Show"}
+            </button>
+          </div>
+        </div>
+      </div>
+      <div style={{display:"flex",alignItems:"center",gap:10}}>
+        <button onClick={save} style={s.btn("primary")}>
+          <Ic n="chk" sz={13} c={C.white}/> Save Credentials
+        </button>
+        {saved&&<span style={{fontSize:12,color:C.green}}>✓ Saved! Use new credentials next time you log in.</span>}
+      </div>
+      <div style={{fontSize:11,color:C.g500,marginTop:10}}>
+        ⚠ After saving, note down your new ID and password. If forgotten, edit the HTML file directly.
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════
+
+// ═══════════════════════════════════
+// TIMETABLE / CLASS STRUCTURE PAGE
+// ═══════════════════════════════════
+const SCHOOL_CLASSES=[
+  {id:"PG-A",label:"PG - A",group:"PG",tier:"nursery"},
+  {id:"NUR-A",label:"Nursery - A",group:"Nursery",tier:"nursery"},{id:"NUR-B",label:"Nursery - B",group:"Nursery",tier:"nursery"},
+  {id:"LKG-A",label:"LKG - A",group:"LKG",tier:"nursery"},{id:"LKG-B",label:"LKG - B",group:"LKG",tier:"nursery"},
+  {id:"UKG-A",label:"UKG - A",group:"UKG",tier:"nursery"},{id:"UKG-B",label:"UKG - B",group:"UKG",tier:"nursery"},
+  ...["1","2","3","4","5","6","7","8","9","10"].flatMap(g=>
+    ["A","B","C","D"].map(s=>({id:`G${g}-${s}`,label:`Grade ${g} - ${s}`,group:`Grade ${g}`,tier:"main"}))
+  ),
+  {id:"G11-A",label:"Grade 11 - A",group:"Grade 11",stream:"Maths",tier:"main"},
+  {id:"G11-B",label:"Grade 11 - B",group:"Grade 11",stream:"Maths",tier:"main"},
+  {id:"G11-C",label:"Grade 11 - C",group:"Grade 11",stream:"Bio",tier:"main"},
+  {id:"G11-D",label:"Grade 11 - D",group:"Grade 11",stream:"Commerce",tier:"main"},
+  {id:"G11-E",label:"Grade 11 - E",group:"Grade 11",stream:"Commerce",tier:"main"},
+  {id:"G12-A",label:"Grade 12 - A",group:"Grade 12",stream:"Maths",tier:"main"},
+  {id:"G12-B",label:"Grade 12 - B",group:"Grade 12",stream:"Maths",tier:"main"},
+  {id:"G12-C",label:"Grade 12 - C",group:"Grade 12",stream:"Bio",tier:"main"},
+  {id:"G12-D",label:"Grade 12 - D",group:"Grade 12",stream:"Commerce",tier:"main"},
+  {id:"G12-E",label:"Grade 12 - E",group:"Grade 12",stream:"Commerce",tier:"main"},
+];
+const CLASS_GROUPS_DISPLAY=[...new Set(SCHOOL_CLASSES.map(c=>c.group))];
+const DAYS=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+const NURSERY_SUBJECTS=["English","Hindi","Mathematics","EVS","GK & Conversation","Drawing","Music","Physical Education","Rhymes & Stories","Activity","Craft","CCA","Computer","Kannada","Dance","VE-P","Games"];
+const MAIN_SUBJECTS=["Mathematics","Science","English","Hindi","Social Science","Physics","Chemistry","Biology","Accounts","Economics","Business Studies","Computer Science","Physical Education","Art","Music","GK","Craft","CCA","Games","Dance","EVS","Kannada","VE-P"];
+
+const DEFAULT_NURSERY_SCHEDULE=[
+  {id:"s0",label:"Reporting",start:"7:40",end:"8:10",mins:null,type:"break"},
+  {id:"s1",label:"Period 1",start:"8:10",end:"8:50",mins:40,type:"period"},
+  {id:"s2",label:"Period 2",start:"8:50",end:"9:30",mins:40,type:"period"},
+  {id:"s3",label:"Period 3",start:"9:30",end:"10:10",mins:40,type:"period"},
+  {id:"s4",label:"Break",start:"10:10",end:"10:30",mins:null,type:"break"},
+  {id:"s5",label:"Period 4",start:"10:30",end:"11:10",mins:40,type:"period"},
+  {id:"s6",label:"Period 5",start:"11:10",end:"11:50",mins:40,type:"period"},
+  {id:"s7",label:"Lunch",start:"11:50",end:"12:10",mins:null,type:"lunch"},
+  {id:"s8",label:"Dispersal",start:"12:10",end:"12:20",mins:null,type:"break"},
+];
+const DEFAULT_MAIN_SCHEDULE=[
+  {id:"m0",label:"Reporting",start:"7:40",end:"8:10",mins:null,type:"break"},
+  {id:"m1",label:"Period 1",start:"8:10",end:"8:50",mins:40,type:"period"},
+  {id:"m2",label:"Period 2",start:"8:50",end:"9:30",mins:40,type:"period"},
+  {id:"m3",label:"Period 3",start:"9:30",end:"10:10",mins:40,type:"period"},
+  {id:"m4",label:"Period 4",start:"10:10",end:"10:50",mins:40,type:"period"},
+  {id:"m5",label:"Lunch",start:"10:50",end:"11:10",mins:null,type:"lunch"},
+  {id:"m6",label:"Period 5",start:"11:10",end:"11:45",mins:35,type:"period"},
+  {id:"m7",label:"Period 6",start:"11:45",end:"12:25",mins:40,type:"period"},
+  {id:"m8",label:"Period 7",start:"12:25",end:"13:00",mins:35,type:"period"},
+  {id:"m9",label:"Diary Time",start:"13:00",end:"13:10",mins:null,type:"break"},
+  {id:"m10",label:"Self Conveyance",start:"13:15",end:"13:15",mins:null,type:"break"},
+  {id:"m11",label:"School Bus",start:"13:20",end:"13:20",mins:null,type:"break"},
+];
+const INIT_TIMETABLE={
+  classSubjects:{},combinedPeriods:[],
+  nurserySchedule:[...DEFAULT_NURSERY_SCHEDULE],
+  mainSchedule:[...DEFAULT_MAIN_SCHEDULE],
+  customClasses:[],
+  fullTimetable:{}, // classId -> {Monday:{p1:{subject,teacher},p2:...}, Tuesday:...}
+};
+
+// ─── helpers ───────────────────────────────────────────────────────────────────
+function newSlotId(){return "sl"+Date.now()+Math.random().toString(36).slice(2,5);}
+
+// ─── SCHEDULE EDITOR ────────────────────────────────────────────────────────────
+function ScheduleEditor({schedule,setSchedule,title,subtitle}){
+  const[editId,setEditId]=useState(null);
+  const[editRow,setEditRow]=useState({});
+  const sTypeColor=(t)=>t==="period"?{c:C.blue,bg:C.blueL}:t==="lunch"?{c:C.yellow,bg:C.yellowL}:{c:C.g400,bg:C.g100};
+
+  const startEdit=(sl)=>{setEditId(sl.id);setEditRow({...sl});};
+  const saveEdit=()=>{
+    setSchedule(prev=>prev.map(sl=>sl.id===editId?{...editRow,mins:editRow.mins?parseInt(editRow.mins):null}:sl));
+    setEditId(null);
+  };
+  const deleteRow=(id)=>{
+    setSchedule(prev=>prev.filter(sl=>sl.id!==id));
+  };
+  const addRow=()=>{
+    const newSl={id:"sl"+Date.now(),label:"New Period",start:"00:00",end:"00:00",mins:40,type:"period"};
+    setSchedule(prev=>[...prev,newSl]);
+    setTimeout(()=>{setEditId(newSl.id);setEditRow({...newSl});},0);
+  };
+  const fi={...s.inp,padding:"4px 8px",fontSize:11};
+
+  return(
+    <div style={s.card}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+        <div>
+          <div style={{fontSize:14,fontWeight:600}}>{title}</div>
+          <div style={{fontSize:11,color:C.g500,marginTop:2}}>{subtitle}</div>
+        </div>
+        <button onClick={addRow} style={s.btn("primary","sm")}><Ic n="plus" sz={12} c={C.white}/> Add Slot</button>
+      </div>
+      <div style={{overflowX:"auto"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",minWidth:500}}>
+          <thead><tr>
+            <th style={s.TH}>Slot Label</th>
+            <th style={s.TH}>Start</th>
+            <th style={s.TH}>End</th>
+            <th style={s.TH}>Mins</th>
+            <th style={s.TH}>Type</th>
+            <th style={s.TH}>Actions</th>
+          </tr></thead>
+          <tbody>
+            {schedule.map(sl=>{
+              const tc=sTypeColor(sl.type);
+              return editId===sl.id?(
+                <tr key={sl.id} style={{background:C.blueL}}>
+                  <td style={s.TD}><input style={{...fi,width:120}} value={editRow.label} onChange={e=>setEditRow(p=>({...p,label:e.target.value}))}/></td>
+                  <td style={s.TD}><input style={{...fi,width:70}} value={editRow.start} placeholder="8:10" onChange={e=>setEditRow(p=>({...p,start:e.target.value}))}/></td>
+                  <td style={s.TD}><input style={{...fi,width:70}} value={editRow.end} placeholder="8:50" onChange={e=>setEditRow(p=>({...p,end:e.target.value}))}/></td>
+                  <td style={s.TD}><input style={{...fi,width:50}} type="number" value={editRow.mins||""} placeholder="40" onChange={e=>setEditRow(p=>({...p,mins:e.target.value}))}/></td>
+                  <td style={s.TD}>
+                    <select style={{...fi,width:90}} value={editRow.type} onChange={e=>setEditRow(p=>({...p,type:e.target.value}))}>
+                      <option value="period">Period</option>
+                      <option value="lunch">Lunch</option>
+                      <option value="break">Break</option>
+                    </select>
+                  </td>
+                  <td style={s.TD}>
+                    <div style={{display:"flex",gap:5}}>
+                      <button onClick={saveEdit} style={s.btn("success","sm")}><Ic n="chk" sz={11} c={C.green}/> Save</button>
+                      <button onClick={()=>setEditId(null)} style={s.btn("secondary","sm")}>Cancel</button>
+                    </div>
+                  </td>
+                </tr>
+              ):(
+                <tr key={sl.id} style={{background:sl.type==="lunch"?C.yellowL:sl.type==="break"?C.g50:C.white}}>
+                  <td style={s.TD}><span style={s.bdg(tc.c,tc.bg)}>{sl.label}</span></td>
+                  <td style={{...s.TD,fontFamily:"monospace",fontSize:12}}>{sl.start}</td>
+                  <td style={{...s.TD,fontFamily:"monospace",fontSize:12}}>{sl.end}</td>
+                  <td style={s.TD}>{sl.mins?`${sl.mins} min`:<span style={{color:C.g300}}>—</span>}</td>
+                  <td style={s.TD}><span style={{fontSize:11,color:C.g500,textTransform:"capitalize"}}>{sl.type}</span></td>
+                  <td style={s.TD}>
+                    <div style={{display:"flex",gap:5}}>
+                      <button onClick={()=>startEdit(sl)} style={s.btn("secondary","sm")}>Edit</button>
+                      <button onClick={()=>deleteRow(sl.id)} style={s.btn("danger","sm")}><Ic n="x" sz={11} c={C.red}/></button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ─── FULL TIMETABLE VIEW (Mon–Sat per class) ────────────────────────────────────
+function FullTimetableView({classId,cls,schedule,timetable,setTimetable,teachers}){
+  const[editCell,setEditCell]=useState(null); // {day,periodId}
+  const[cellForm,setCellForm]=useState({subject:"",teacherId:""});
+  const isNursery=cls?.tier==="nursery";
+  const subList=isNursery?NURSERY_SUBJECTS:MAIN_SUBJECTS;
+  const periodSlots=schedule.filter(sl=>sl.type==="period");
+  const ft=timetable.fullTimetable||{};
+  const clsFT=ft[classId]||{};
+
+  const getCell=(day,periodId)=>(clsFT[day]||{})[periodId]||{subject:"",teacherId:""};
+
+  const startEditCell=(day,periodId)=>{
+    setEditCell({day,periodId});
+    setCellForm({...getCell(day,periodId)});
+  };
+
+  const saveCell=()=>{
+    if(!editCell)return;
+    const updated={...timetable};
+    if(!updated.fullTimetable)updated.fullTimetable={};
+    if(!updated.fullTimetable[classId])updated.fullTimetable[classId]={};
+    if(!updated.fullTimetable[classId][editCell.day])updated.fullTimetable[classId][editCell.day]={};
+    updated.fullTimetable[classId][editCell.day][editCell.periodId]={...cellForm};
+    setTimetable(updated);LS.set("sa_timetable",updated);
+    setEditCell(null);
+  };
+
+  const clearCell=(day,periodId)=>{
+    const updated={...timetable};
+    if(updated.fullTimetable?.[classId]?.[day]?.[periodId]){
+      delete updated.fullTimetable[classId][day][periodId];
+      setTimetable(updated);LS.set("sa_timetable",updated);
+    }
+  };
+
+  const getTeacherShort=(tid)=>{
+    const t=teachers.find(x=>x.id===tid);
+    if(!t)return"";
+    const parts=t.name.split(" ");
+    return`(${parts[0]}${parts[1]?"."+parts[1].charAt(0):"."})`;
+  };
+
+  return(
+    <div>
+      <div style={{marginBottom:12,fontSize:12,color:C.g500}}>
+        Click any cell to edit. Shows full Mon–Sat timetable for <strong>{cls?.label}</strong>.
+      </div>
+      <div style={{overflowX:"auto"}}>
+        <table style={{borderCollapse:"collapse",width:"100%",minWidth:720,fontSize:12}}>
+          <thead>
+            <tr>
+              <th style={{...s.TH,width:110}}>Period / Time</th>
+              {DAYS.map(d=><th key={d} style={{...s.TH,textAlign:"center",minWidth:100}}>{d}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {periodSlots.map(sl=>(
+              <tr key={sl.id}>
+                <td style={{...s.TD,background:C.g50,fontWeight:500}}>
+                  <div style={{fontSize:12,fontWeight:600}}>{sl.label}</div>
+                  <div style={{fontSize:10,color:C.g400,fontFamily:"monospace"}}>{sl.start}–{sl.end}</div>
+                  {sl.mins&&<div style={{fontSize:10,color:C.g400}}>{sl.mins} min</div>}
+                </td>
+                {DAYS.map(day=>{
+                  const cell=getCell(day,sl.id);
+                  const isEditing=editCell?.day===day&&editCell?.periodId===sl.id;
+                  if(isEditing){
+                    return(
+                      <td key={day} style={{...s.TD,background:C.blueL,padding:8,verticalAlign:"top"}}>
+                        <select style={{...s.inp,padding:"3px 6px",fontSize:11,marginBottom:5}}
+                          value={cellForm.subject}
+                          onChange={e=>setCellForm(p=>({...p,subject:e.target.value}))}>
+                          <option value="">-- Subject --</option>
+                          {subList.map(x=><option key={x}>{x}</option>)}
+                        </select>
+                        <select style={{...s.inp,padding:"3px 6px",fontSize:11,marginBottom:5}}
+                          value={cellForm.teacherId}
+                          onChange={e=>setCellForm(p=>({...p,teacherId:e.target.value}))}>
+                          <option value="">-- Teacher --</option>
+                          {teachers.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
+                        </select>
+                        <div style={{display:"flex",gap:4}}>
+                          <button onClick={saveCell} style={s.btn("success","sm")}><Ic n="chk" sz={10} c={C.green}/></button>
+                          <button onClick={()=>setEditCell(null)} style={s.btn("secondary","sm")}><Ic n="x" sz={10} c={C.g500}/></button>
+                        </div>
+                      </td>
+                    );
+                  }
+                  return(
+                    <td key={day}
+                      onClick={()=>startEditCell(day,sl.id)}
+                      style={{...s.TD,cursor:"pointer",verticalAlign:"top",padding:"8px",
+                        background:cell.subject?"#FAFFFE":C.white,
+                        border:`1px solid ${C.g200}`}}
+                      title="Click to edit">
+                      {cell.subject?(
+                        <div>
+                          <div style={{fontWeight:600,fontSize:12,color:C.g900}}>{cell.subject}</div>
+                          <div style={{fontSize:10,color:C.g500,marginTop:2}}>
+                            {cell.teacherId?getTeacherShort(cell.teacherId):""}
+                          </div>
+                          <button
+                            onClick={e=>{e.stopPropagation();clearCell(day,sl.id);}}
+                            style={{background:"none",border:"none",cursor:"pointer",color:C.g300,fontSize:10,padding:0,marginTop:2}}>
+                            ✕ clear
+                          </button>
+                        </div>
+                      ):(
+                        <div style={{color:C.g300,fontSize:11,textAlign:"center",paddingTop:4}}>+</div>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ─── PAGE TIMETABLE ─────────────────────────────────────────────────────────────
+function BuiltinClassList(){
+  const[showAll,setShowAll]=useState(false);
+  const visible=showAll?SCHOOL_CLASSES:SCHOOL_CLASSES.slice(0,12);
+  return(
+    <div style={{...s_card,marginBottom:14}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+        <div style={{fontSize:13,fontWeight:600}}>Built-in Classes ({SCHOOL_CLASSES.length} total — non-editable)</div>
+        <button onClick={()=>setShowAll(p=>!p)}
+          style={{display:"inline-flex",alignItems:"center",gap:6,border:"none",borderRadius:7,fontWeight:500,cursor:"pointer",fontSize:11,padding:"4px 10px",background:"#F4F4F5",color:"#3F3F46"}}>
+          {showAll?"Show Less ▲":"Show All ▼ ("+SCHOOL_CLASSES.length+")"}
+        </button>
+      </div>
+      <div style={{fontSize:11,color:"#71717A",marginBottom:10}}>PG · Nursery · LKG · UKG · Grade 1–10 (A–D) · Grade 11–12 (A–E with streams)</div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+        {visible.map(c=>(
+          <span key={c.id} style={{display:"inline-flex",alignItems:"center",gap:4,padding:"3px 8px",borderRadius:20,fontSize:11,fontWeight:600,color:"#52525B",background:"#F4F4F5"}}>
+            {c.label}{c.stream?" ("+c.stream+")":""}
+          </span>
+        ))}
+        {!showAll&&SCHOOL_CLASSES.length>12&&(
+          <button onClick={()=>setShowAll(true)}
+            style={{display:"inline-flex",padding:"3px 8px",borderRadius:20,fontSize:11,fontWeight:500,cursor:"pointer",border:"1px solid #E4E4E7",background:"#FAFAFA",color:"#71717A"}}>
+            +{SCHOOL_CLASSES.length-12} more…
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+const s_card={background:"#FFFFFF",border:"1px solid #E4E4E7",borderRadius:10,padding:18};
+
+function PageTimetable({teachers,periodsPerDay,user}){
+  const[timetable,setTimetable]=useState(()=>{
+    const saved=LS.get("sa_timetable",null);
+    if(saved){
+      return{
+        ...INIT_TIMETABLE,...saved,
+        nurserySchedule:saved.nurserySchedule||[...DEFAULT_NURSERY_SCHEDULE],
+        mainSchedule:saved.mainSchedule||[...DEFAULT_MAIN_SCHEDULE],
+        customClasses:saved.customClasses||[],
+        fullTimetable:saved.fullTimetable||{},
+      };
+    }
+    return{...INIT_TIMETABLE,nurserySchedule:[...DEFAULT_NURSERY_SCHEDULE],mainSchedule:[...DEFAULT_MAIN_SCHEDULE]};
+  });
+  const[tab,setTab]=useState("full"); // full|schedule|combined|classes
+  const[selClass,setSelClass]=useState("");
+  // Add class form
+  const[showAddClass,setShowAddClass]=useState(false);
+  const[newCF,setNewCF]=useState({id:"",label:"",group:"",tier:"main",stream:""});
+  // Edit custom class
+  const[editClsId,setEditClsId]=useState(null);
+  const[editClsForm,setEditClsForm]=useState({});
+  // Combined form
+  const[showCombForm,setShowCombForm]=useState(false);
+  const[combForm,setCombForm]=useState({reason:"",teacher:"",period:"",dayGroups:[{days:[],teacherId:""}]});
+  const[editCombIdx,setEditCombIdx]=useState(null);
+
+  const save=(updated)=>{setTimetable(updated);DB.setTimetable(updated);};
+
+  const allClasses=[...SCHOOL_CLASSES,...(timetable.customClasses||[])];
+  const cls=allClasses.find(c=>c.id===selClass);
+  const isNursery=cls?.tier==="nursery";
+  const schedule=isNursery?timetable.nurserySchedule:timetable.mainSchedule;
+
+  // ── Schedule setters — use setState callback to avoid stale closure ──
+  const setNurserySchedule=(fn)=>{
+    setTimetable(prev=>{
+      const newSched=typeof fn==="function"?fn(prev.nurserySchedule):fn;
+      const updated={...prev,nurserySchedule:newSched};
+      DB.setTimetable(updated);
+      return updated;
+    });
+  };
+  const setMainSchedule=(fn)=>{
+    setTimetable(prev=>{
+      const newSched=typeof fn==="function"?fn(prev.mainSchedule):fn;
+      const updated={...prev,mainSchedule:newSched};
+      DB.setTimetable(updated);
+      return updated;
+    });
+  };
+
+  // ── Add custom class ──
+  const addCustomClass=()=>{
+    if(!newCF.id.trim()||!newCF.label.trim()||!newCF.group.trim()){alert("ID, Label and Group are required.");return;}
+    if(allClasses.find(c=>c.id===newCF.id.trim())){alert("ID already exists. Choose a different one.");return;}
+    const updated={...timetable,customClasses:[...(timetable.customClasses||[]),{...newCF,id:newCF.id.trim().toUpperCase()}]};
+    save(updated);
+    setNewCF({id:"",label:"",group:"",tier:"main",stream:""});
+    setShowAddClass(false);
+    alert("Class/Section added!");
+  };
+
+  // ── Edit custom class ──
+  const startEditCls=(c)=>{setEditClsId(c.id);setEditClsForm({...c});};
+  const saveEditCls=()=>{
+    const updated={...timetable,customClasses:(timetable.customClasses||[]).map(c=>c.id===editClsId?{...editClsForm}:c)};
+    save(updated);setEditClsId(null);
+  };
+  const deleteCustomCls=(id)=>{
+    const ft={...timetable.fullTimetable};delete ft[id];
+    const cs={...timetable.classSubjects};delete cs[id];
+    const updated={...timetable,customClasses:(timetable.customClasses||[]).filter(c=>c.id!==id),fullTimetable:ft,classSubjects:cs};
+    save(updated);
+    if(selClass===id)setSelClass("");
+  };
+
+  // ── Combined periods ──
+  const addDayGroup=()=>setCombForm(p=>({...p,dayGroups:[...p.dayGroups,{days:[],teacherId:""}]}));
+  const removeDayGroup=(i)=>setCombForm(p=>({...p,dayGroups:p.dayGroups.filter((_,j)=>j!==i)}));
+  const toggleDayInGroup=(groupIdx,day)=>{
+    setCombForm(p=>{
+      const dg=[...p.dayGroups];
+      const g={...dg[groupIdx]};
+      g.days=g.days.includes(day)?g.days.filter(d=>d!==day):[...g.days,day];
+      dg[groupIdx]=g;
+      return{...p,dayGroups:dg};
+    });
+  };
+  const saveCombined=()=>{
+    if(!combForm.period||!combForm.reason){alert("Period and reason are required.");return;}
+    if(combForm.dayGroups.some(g=>g.days.length===0)){alert("Each day group must have at least one day selected.");return;}
+    const entry={...combForm,id:editCombIdx!==null?(timetable.combinedPeriods[editCombIdx]?.id||`CP${Date.now()}`):(`CP${Date.now()}`)};
+    const cp=[...(timetable.combinedPeriods||[])];
+    if(editCombIdx!==null)cp[editCombIdx]=entry;
+    else cp.push(entry);
+    const updated={...timetable,combinedPeriods:cp};
+    save(updated);
+    setShowCombForm(false);setCombForm({reason:"",teacher:"",period:"",dayGroups:[{days:[],teacherId:""}]});setEditCombIdx(null);
+    alert("Combined period saved!");
+  };
+  const startEditComb=(idx)=>{
+    const c=timetable.combinedPeriods[idx];
+    setCombForm({
+      reason:c.reason||"",teacher:c.teacher||"",period:c.period||"",
+      dayGroups:c.dayGroups||[{days:c.days||[],teacherId:c.teacher||""}],
+    });
+    setEditCombIdx(idx);setShowCombForm(true);
+  };
+  const removeCombined=(idx)=>{
+    const updated={...timetable,combinedPeriods:timetable.combinedPeriods.filter((_,i)=>i!==idx)};
+    save(updated);
+  };
+
+  const getTeacherName=(tid)=>teachers.find(t=>t.id===tid)?.name||"—";
+  const getSchedLabel=(period)=>{
+    const sl=[...timetable.mainSchedule,...timetable.nurserySchedule].find(s=>s.id===period||s.period===parseInt(period));
+    return sl?.label||`P${period}`;
+  };
+  const fi={...s.inp,padding:"5px 8px",fontSize:12};
+  const allGroups=[...new Set(allClasses.map(c=>c.group))];
+
+  return(
+    <div>
+      <div style={{fontSize:16,fontWeight:600,marginBottom:4}}>Class Timetable & Structure</div>
+      <div style={{fontSize:12,color:C.g500,marginBottom:16}}>Full timetable, schedule, combined periods and class management.</div>
+
+      {/* Tab bar */}
+      <div style={{display:"flex",gap:8,marginBottom:20,flexWrap:"wrap"}}>
+        {[
+          {id:"full",l:"📋 Full Timetable"},
+          {id:"schedule",l:"🕐 School Schedule"},
+          {id:"combined",l:"🔗 Combined Periods"},
+          {id:"classes",l:"🏫 Manage Classes"},
+        ].map(t=>(
+          <button key={t.id} onClick={()=>setTab(t.id)}
+            style={s.btn(tab===t.id?"primary":"secondary")}>
+            {t.l}
+          </button>
+        ))}
+      </div>
+
+      {/* ══ TAB: FULL TIMETABLE (Mon–Sat grid) ══ */}
+      {tab==="full"&&(
+        <div>
+          {/* Class selector */}
+          <div style={{...s.card,marginBottom:16}}>
+            <div style={{fontSize:13,fontWeight:600,marginBottom:12}}>Select Class / Section</div>
+            {allGroups.map(grp=>(
+              <div key={grp} style={{marginBottom:10}}>
+                <div style={{fontSize:10,fontWeight:600,color:C.g500,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:5}}>{grp}</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                  {allClasses.filter(c=>c.group===grp).map(c=>(
+                    <button key={c.id} onClick={()=>setSelClass(c.id)}
+                      style={{padding:"4px 10px",borderRadius:6,
+                        border:`1px solid ${selClass===c.id?C.blue:C.g200}`,
+                        fontSize:11,fontWeight:selClass===c.id?600:400,cursor:"pointer",
+                        background:selClass===c.id?C.blueL:C.white,
+                        color:selClass===c.id?C.blue:C.g600}}>
+                      {c.label}{c.stream?` (${c.stream})`:""}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {selClass&&cls&&(
+            <div style={s.card}>
+              {/* Header like the image */}
+              <div style={{textAlign:"center",marginBottom:16,paddingBottom:12,borderBottom:`1px solid ${C.g200}`}}>
+                <div style={{fontSize:16,fontWeight:700}}>Classwise Time-Table</div>
+                <div style={{fontSize:12,color:C.g600,marginTop:4}}>
+                  Season: Summer / Winter Time &nbsp;·&nbsp; Class: {cls.group} &nbsp;·&nbsp; Section: {cls.label.split(" - ")[1]||""}
+                  {cls.stream?<span style={{...s.bdg(C.purple,C.purpleL),marginLeft:8}}>{cls.stream}</span>:null}
+                </div>
+              </div>
+              <FullTimetableView
+                classId={selClass} cls={cls} schedule={schedule}
+                timetable={timetable} setTimetable={save} teachers={teachers}/>
+            </div>
+          )}
+          {!selClass&&(
+            <div style={{...s.card,textAlign:"center",padding:50}}>
+              <div style={{fontSize:24,marginBottom:12}}>📋</div>
+              <div style={{fontSize:14,fontWeight:500,color:C.g600}}>Select a class above to view / edit its timetable</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ══ TAB: SCHOOL SCHEDULE (fully editable) ══ */}
+      {tab==="schedule"&&(
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+          <ScheduleEditor
+            schedule={timetable.nurserySchedule}
+            setSchedule={setNurserySchedule}
+            title="Nursery / LKG / UKG Schedule"
+            subtitle="PG · Nursery · LKG · UKG — ends 12:20 PM"/>
+          <ScheduleEditor
+            schedule={timetable.mainSchedule}
+            setSchedule={setMainSchedule}
+            title="Class 1–12 Schedule"
+            subtitle="Reporting 7:40 AM · School Bus 1:20 PM"/>
+        </div>
+      )}
+
+      {/* ══ TAB: COMBINED PERIODS ══ */}
+      {tab==="combined"&&(
+        <div>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+            <div>
+              <div style={{fontSize:13,fontWeight:600}}>Combined Class Periods</div>
+              <div style={{fontSize:11,color:C.g500,marginTop:2}}>
+                Different teachers can be assigned for different days in the same combined period.
+              </div>
+            </div>
+            <button onClick={()=>{
+              setShowCombForm(true);setEditCombIdx(null);
+              setCombForm({reason:"",teacher:"",period:"",dayGroups:[{days:[],teacherId:""}]});
+            }} style={s.btn("primary")}>
+              <Ic n="plus" sz={13} c={C.white}/> Add Combined Period
+            </button>
+          </div>
+
+          {/* Info box explaining day-groups */}
+          <div style={{background:C.blueL,border:`1px solid ${C.blue}20`,borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:12,color:C.g700}}>
+            <strong>How day-wise teachers work:</strong> For example, Physical Education can have Teacher 1 on Mon+Tue, Teacher 2 on Wed+Thu, Teacher 3 on Fri+Sat — each is a "Day Group". The arrangement algorithm knows which teacher is responsible on which day.
+          </div>
+
+          {/* COMBINED FORM */}
+          {showCombForm&&(
+            <div style={{...s.card,marginBottom:20,borderLeft:`3px solid ${C.purple}`}}>
+              <div style={{fontSize:13,fontWeight:600,marginBottom:16}}>{editCombIdx!==null?"Edit":"New"} Combined Period</div>
+
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+                <div>
+                  <div style={{fontSize:11,fontWeight:500,color:C.g600,marginBottom:6}}>Period *</div>
+                  <select style={s.inp} value={combForm.period}
+                    onChange={e=>setCombForm(p=>({...p,period:e.target.value}))}>
+                    <option value="">-- Select Period --</option>
+                    {timetable.mainSchedule.filter(sl=>sl.type==="period").map(sl=>(
+                      <option key={sl.id} value={sl.id}>{sl.label} ({sl.start}–{sl.end})</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <div style={{fontSize:11,fontWeight:500,color:C.g600,marginBottom:6}}>Subject / Reason *</div>
+                  <input style={s.inp} placeholder="e.g. Physical Education, Assembly..."
+                    value={combForm.reason}
+                    onChange={e=>setCombForm(p=>({...p,reason:e.target.value}))}/>
+                </div>
+              </div>
+
+              {/* Classes to combine */}
+              <div style={{marginBottom:16}}>
+                <div style={{fontSize:11,fontWeight:500,color:C.g600,marginBottom:8}}>Classes to Combine *</div>
+                <div style={{maxHeight:220,overflowY:"auto",border:`1px solid ${C.g200}`,borderRadius:8,padding:10}}>
+                  {allGroups.map(grp=>(
+                    <div key={grp} style={{marginBottom:8}}>
+                      <div style={{fontSize:10,fontWeight:600,color:C.g500,textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:4}}>{grp}</div>
+                      <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+                        {allClasses.filter(c=>c.group===grp).map(c=>{
+                          const isInAnyGroup=combForm.dayGroups?.some(g=>g.classes?.includes(c.id));
+                          return(
+                            <label key={c.id} style={{display:"flex",alignItems:"center",gap:3,fontSize:10,cursor:"pointer",
+                              padding:"2px 7px",borderRadius:4,
+                              border:`1px solid ${isInAnyGroup?C.purple:C.g200}`,
+                              background:isInAnyGroup?C.purpleL:C.white,
+                              color:isInAnyGroup?C.purple:C.g600,userSelect:"none"}}>
+                              <input type="checkbox" style={{width:11,height:11,accentColor:C.purple}}
+                                checked={isInAnyGroup}
+                                onChange={()=>{
+                                  // toggle in first day group by default
+                                  setCombForm(p=>{
+                                    const dg=[...p.dayGroups];
+                                    if(!dg[0])dg[0]={days:[],teacherId:"",classes:[]};
+                                    const g={...dg[0],classes:[...(dg[0].classes||[])]};
+                                    if(g.classes.includes(c.id))g.classes=g.classes.filter(x=>x!==c.id);
+                                    else g.classes.push(c.id);
+                                    dg[0]=g;
+                                    return{...p,dayGroups:dg};
+                                  });
+                                }}/>
+                              {c.label}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Day Groups — the key feature */}
+              <div style={{marginBottom:16}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                  <div style={{fontSize:11,fontWeight:600,color:C.g700}}>Day-wise Teacher Assignment *</div>
+                  <button onClick={addDayGroup} style={s.btn("secondary","sm")}><Ic n="plus" sz={11} c={C.g600}/> Add Day Group</button>
+                </div>
+                {combForm.dayGroups.map((grp,gi)=>(
+                  <div key={gi} style={{border:`1px solid ${C.g200}`,borderRadius:8,padding:12,marginBottom:10,background:C.g50}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                      <div style={{fontSize:12,fontWeight:500,color:C.g700}}>Group {gi+1}</div>
+                      {combForm.dayGroups.length>1&&(
+                        <button onClick={()=>removeDayGroup(gi)} style={s.btn("danger","sm")}><Ic n="x" sz={10} c={C.red}/></button>
+                      )}
+                    </div>
+                    {/* Day selector */}
+                    <div style={{marginBottom:8}}>
+                      <div style={{fontSize:11,fontWeight:500,color:C.g600,marginBottom:6}}>Days for this group:</div>
+                      <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                        {DAYS.map(day=>{
+                          const sel=grp.days?.includes(day);
+                          // check if day already used in another group
+                          const usedInOther=combForm.dayGroups.some((g,i)=>i!==gi&&g.days?.includes(day));
+                          return(
+                            <button key={day} onClick={()=>!usedInOther&&toggleDayInGroup(gi,day)}
+                              disabled={usedInOther}
+                              style={{padding:"4px 10px",borderRadius:6,border:`1px solid ${sel?C.blue:usedInOther?C.g200:C.g300}`,
+                                fontSize:11,fontWeight:sel?600:400,cursor:usedInOther?"not-allowed":"pointer",
+                                background:sel?C.blueL:usedInOther?C.g100:C.white,
+                                color:sel?C.blue:usedInOther?C.g300:C.g600,
+                                opacity:usedInOther?0.5:1}}>
+                              {day.slice(0,3)}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    {/* Teacher for this day group */}
+                    <div>
+                      <div style={{fontSize:11,fontWeight:500,color:C.g600,marginBottom:5}}>Teacher for these days:</div>
+                      <select style={s.inp} value={grp.teacherId||""}
+                        onChange={e=>{
+                          setCombForm(p=>{
+                            const dg=[...p.dayGroups];
+                            dg[gi]={...dg[gi],teacherId:e.target.value};
+                            return{...p,dayGroups:dg};
+                          });
+                        }}>
+                        <option value="">-- Not fixed --</option>
+                        {teachers.map(t=><option key={t.id} value={t.id}>{t.name} ({t.subject})</option>)}
+                      </select>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={saveCombined} style={s.btn("primary")}>
+                  <Ic n="chk" sz={13} c={C.white}/> Save Combined Period
+                </button>
+                <button onClick={()=>{setShowCombForm(false);setCombForm({reason:"",teacher:"",period:"",dayGroups:[{days:[],teacherId:""}]});setEditCombIdx(null);}}
+                  style={s.btn("secondary")}>Cancel</button>
+              </div>
+            </div>
+          )}
+
+          {/* List of combined periods */}
+          {!timetable.combinedPeriods?.length?(
+            <div style={{...s.card,textAlign:"center",padding:50}}>
+              <div style={{fontSize:24,marginBottom:12}}>🔗</div>
+              <div style={{fontSize:14,fontWeight:500,color:C.g600}}>No combined periods yet</div>
+              <div style={{fontSize:12,color:C.g400,marginTop:6}}>Click "Add Combined Period" above.</div>
+            </div>
+          ):(
+            timetable.combinedPeriods.map((cp,i)=>(
+              <div key={cp.id||i} style={{...s.card,marginBottom:12,borderLeft:`3px solid ${C.purple}`}}>
+                <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between"}}>
+                  <div style={{flex:1}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,flexWrap:"wrap"}}>
+                      <span style={s.bdg(C.purple,C.purpleL)}>{getSchedLabel(cp.period)}</span>
+                      <span style={{fontSize:13,fontWeight:600}}>{cp.reason}</span>
+                    </div>
+                    {/* Day Groups display */}
+                    {(cp.dayGroups||[]).map((dg,gi)=>(
+                      <div key={gi} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,flexWrap:"wrap"}}>
+                        <div style={{display:"flex",gap:4}}>
+                          {(dg.days||[]).map(d=>(
+                            <span key={d} style={s.bdg(C.blue,C.blueL)}>{d.slice(0,3)}</span>
+                          ))}
+                        </div>
+                        <span style={{fontSize:12,color:C.g500}}>→</span>
+                        <span style={{fontSize:12,fontWeight:500}}>{dg.teacherId?getTeacherName(dg.teacherId):"No teacher fixed"}</span>
+                      </div>
+                    ))}
+                    {/* Classes */}
+                    {cp.dayGroups?.[0]?.classes?.length>0&&(
+                      <div style={{display:"flex",flexWrap:"wrap",gap:4,marginTop:6}}>
+                        {cp.dayGroups[0].classes.map(cid=>{
+                          const cl=allClasses.find(c=>c.id===cid);
+                          return <span key={cid} style={s.bdg(C.g600,C.g100)}>{cl?.label||cid}</span>;
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{display:"flex",gap:6,flexShrink:0,marginLeft:12}}>
+                    <button onClick={()=>startEditComb(i)} style={s.btn("secondary","sm")}>Edit</button>
+                    <button onClick={()=>removeCombined(i)} style={s.btn("danger","sm")}><Ic n="x" sz={11} c={C.red}/></button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* ══ TAB: MANAGE CLASSES ══ */}
+      {tab==="classes"&&(
+        <div>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+            <div>
+              <div style={{fontSize:13,fontWeight:600}}>Manage Classes & Sections</div>
+              <div style={{fontSize:11,color:C.g500,marginTop:2}}>Add custom sections or edit/delete existing ones.</div>
+            </div>
+            <button onClick={()=>setShowAddClass(!showAddClass)} style={s.btn("primary")}>
+              <Ic n="plus" sz={13} c={C.white}/> Add Section
+            </button>
+          </div>
+
+          {/* Add form */}
+          {showAddClass&&(
+            <div style={{...s.card,marginBottom:16,borderLeft:`3px solid ${C.blue}`}}>
+              <div style={{fontSize:13,fontWeight:600,marginBottom:12}}>Add New Class / Section</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
+                <div>
+                  <div style={{fontSize:11,fontWeight:500,color:C.g600,marginBottom:4}}>
+                    Unique ID *
+                    <span style={{...s.bdg(C.g500,C.g100),marginLeft:6,fontSize:9}}>e.g. G6-E, NUR-C</span>
+                  </div>
+                  <input style={s.inp} placeholder="G6-E" value={newCF.id}
+                    onChange={e=>setNewCF(p=>({...p,id:e.target.value.toUpperCase()}))}/>
+                  <div style={{fontSize:10,color:C.g400,marginTop:3}}>Short code used internally. Cannot be changed later.</div>
+                </div>
+                <div>
+                  <div style={{fontSize:11,fontWeight:500,color:C.g600,marginBottom:4}}>Display Label *</div>
+                  <input style={s.inp} placeholder="Grade 6 - E" value={newCF.label}
+                    onChange={e=>setNewCF(p=>({...p,label:e.target.value}))}/>
+                </div>
+                <div>
+                  <div style={{fontSize:11,fontWeight:500,color:C.g600,marginBottom:4}}>Grade Group *</div>
+                  <input style={s.inp} placeholder="Grade 6" value={newCF.group}
+                    onChange={e=>setNewCF(p=>({...p,group:e.target.value}))}/>
+                </div>
+                <div>
+                  <div style={{fontSize:11,fontWeight:500,color:C.g600,marginBottom:4}}>Tier</div>
+                  <select style={s.inp} value={newCF.tier} onChange={e=>setNewCF(p=>({...p,tier:e.target.value}))}>
+                    <option value="main">Main School (Class 1–12)</option>
+                    <option value="nursery">Nursery (PG–UKG)</option>
+                  </select>
+                </div>
+                <div>
+                  <div style={{fontSize:11,fontWeight:500,color:C.g600,marginBottom:4}}>Stream (if applicable)</div>
+                  <input style={s.inp} placeholder="Maths / Bio / Commerce" value={newCF.stream}
+                    onChange={e=>setNewCF(p=>({...p,stream:e.target.value}))}/>
+                </div>
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={addCustomClass} style={s.btn("primary")}><Ic n="chk" sz={13} c={C.white}/> Save</button>
+                <button onClick={()=>setShowAddClass(false)} style={s.btn("secondary")}>Cancel</button>
+              </div>
+            </div>
+          )}
+
+          {/* Default classes info — expandable via parent state */}
+          <BuiltinClassList/>
+
+          {/* Custom classes — fully editable */}
+          {!(timetable.customClasses||[]).length?(
+            <div style={{...s.card,textAlign:"center",padding:40,color:C.g400,fontSize:12}}>
+              No custom sections added yet. Use "Add Section" above.
+            </div>
+          ):(
+            <div style={s.card}>
+              <div style={{fontSize:13,fontWeight:600,marginBottom:12}}>Custom Classes / Sections</div>
+              <table style={{width:"100%",borderCollapse:"collapse"}}>
+                <thead><tr>
+                  <th style={s.TH}>ID</th>
+                  <th style={s.TH}>Label</th>
+                  <th style={s.TH}>Group</th>
+                  <th style={s.TH}>Tier</th>
+                  <th style={s.TH}>Stream</th>
+                  <th style={s.TH}>Actions</th>
+                </tr></thead>
+                <tbody>
+                  {(timetable.customClasses||[]).map(c=>(
+                    <tr key={c.id}>
+                      {editClsId===c.id?(
+                        <>
+                          <td style={s.TD}><code style={{fontSize:11,background:C.g100,padding:"2px 6px",borderRadius:4}}>{c.id}</code></td>
+                          <td style={s.TD}><input style={{...fi,width:140}} value={editClsForm.label} onChange={e=>setEditClsForm(p=>({...p,label:e.target.value}))}/></td>
+                          <td style={s.TD}><input style={{...fi,width:100}} value={editClsForm.group} onChange={e=>setEditClsForm(p=>({...p,group:e.target.value}))}/></td>
+                          <td style={s.TD}>
+                            <select style={{...fi,width:100}} value={editClsForm.tier} onChange={e=>setEditClsForm(p=>({...p,tier:e.target.value}))}>
+                              <option value="main">Main</option>
+                              <option value="nursery">Nursery</option>
+                            </select>
+                          </td>
+                          <td style={s.TD}><input style={{...fi,width:90}} value={editClsForm.stream||""} onChange={e=>setEditClsForm(p=>({...p,stream:e.target.value}))}/></td>
+                          <td style={s.TD}>
+                            <div style={{display:"flex",gap:5}}>
+                              <button onClick={saveEditCls} style={s.btn("success","sm")}><Ic n="chk" sz={11} c={C.green}/> Save</button>
+                              <button onClick={()=>setEditClsId(null)} style={s.btn("secondary","sm")}>Cancel</button>
+                            </div>
+                          </td>
+                        </>
+                      ):(
+                        <>
+                          <td style={s.TD}><code style={{fontSize:11,background:C.g100,padding:"2px 6px",borderRadius:4}}>{c.id}</code></td>
+                          <td style={s.TD}>{c.label}</td>
+                          <td style={s.TD}>{c.group}</td>
+                          <td style={s.TD}><span style={s.bdg(c.tier==="nursery"?C.yellow:C.blue,c.tier==="nursery"?C.yellowL:C.blueL)}>{c.tier}</span></td>
+                          <td style={s.TD}>{c.stream||<span style={{color:C.g300}}>—</span>}</td>
+                          <td style={s.TD}>
+                            <div style={{display:"flex",gap:5}}>
+                              <button onClick={()=>startEditCls(c)} style={s.btn("secondary","sm")}>Edit</button>
+                              <button onClick={()=>deleteCustomCls(c.id)} style={s.btn("danger","sm")}><Ic n="x" sz={11} c={C.red}/> Delete</button>
+                            </div>
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Dashboard({teachers,attendance,arrangements,requests,user,attSaved}){
+  const pCount=teachers.filter(t=>["present","halfday"].includes(attendance[t.id])).length;
+  const aCount=teachers.filter(t=>["absent","halfday","emergency"].includes(attendance[t.id])).length;
+  const pending=requests.filter(r=>r.status==="pending").length;
+  const date=new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+  const isAdmin=user.role==="admin"||user.role==="superadmin";
+
+  if(!isAdmin){
+    const st=attendance[user.id]||"present";
+    const saved=attSaved[user.id];
+    const myArr=saved?arrangements.filter(a=>a.subId===user.id):[];
+    return(
+      <div>
+        <div style={{fontSize:16,fontWeight:600,marginBottom:4}}>Welcome, {user.name?.split(" ").slice(-1)[0]} 👋</div>
+        <div style={{fontSize:12,color:C.g500,marginBottom:18}}>{date}</div>
+        {!saved&&(
+          <div style={{background:C.yellowL,color:C.yellow,padding:"10px 14px",borderRadius:8,fontSize:12,marginBottom:16,display:"flex",gap:6,alignItems:"center"}}>
+            <Ic n="alert" sz={13} c={C.yellow}/> Please save your attendance to see today's arrangements.
+          </div>
+        )}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:16}}>
+          {[{l:"My Arrangements",v:myArr.length,c:C.blue},{l:"Requests Used",v:requests.filter(r=>r.teacherId===user.id).length,c:C.yellow},{l:"Periods/Day",v:user.ppd,c:C.green}].map(x=>(
+            <div key={x.l} style={{...s.card,borderLeft:`3px solid ${x.c}`}}>
+              <div style={{fontSize:22,fontWeight:700,color:x.c}}>{x.v}</div>
+              <div style={{fontSize:11,color:C.g500,marginTop:3}}>{x.l}</div>
+            </div>
+          ))}
+        </div>
+        {!myArr.length?<div style={{...s.card,textAlign:"center",padding:40}}><Ic n="chk" sz={32} c={C.g300}/><div style={{fontSize:13,color:C.g500,marginTop:12}}>{saved?"No arrangements today!":"Save attendance first."}</div></div>
+          :myArr.map(a=>(
+            <div key={a.id} style={{...s.card,borderLeft:`4px solid ${C.blue}`,marginBottom:12}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                <div><div style={{fontSize:15,fontWeight:600}}>{a.class} — Section {a.section}</div><div style={{fontSize:12,color:C.g500,marginTop:4}}>Period {a.period} · Covering {a.abName}</div></div>
+                <span style={s.bdg(C.green,C.greenL)}>Active</span>
+              </div>
+            </div>
+          ))
+        }
+      </div>
+    );
+  }
+
+  return(
+    <div>
+      <div style={{fontSize:16,fontWeight:600,marginBottom:4}}>{user.role==="superadmin"?"🔑 Super Admin Dashboard":"Good Morning, Admin 👋"}</div>
+      <div style={{fontSize:12,color:C.g500,marginBottom:18}}>{date}</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:12,marginBottom:16}}>
+        {[{l:"Present",v:pCount,c:C.green},{l:"Absent/Partial",v:aCount,c:C.red},{l:"Arrangements",v:arrangements.length,c:C.blue},{l:"Pending Requests",v:pending,c:C.yellow}].map(x=>(
+          <div key={x.l} style={{...s.card,borderLeft:`3px solid ${x.c}`}}>
+            <div style={{fontSize:24,fontWeight:700,color:x.c}}>{x.v}</div>
+            <div style={{fontSize:11,color:C.g500,marginTop:3}}>{x.l}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+        <div style={s.card}>
+          <div style={{fontSize:13,fontWeight:600,marginBottom:12}}>Absent / Partial Teachers Today</div>
+          {!teachers.filter(t=>["absent","halfday","emergency"].includes(attendance[t.id])).length
+            ?<div style={{textAlign:"center",padding:24,color:C.g400,fontSize:12}}>All present 🎉</div>
+            :teachers.filter(t=>["absent","halfday","emergency"].includes(attendance[t.id])).map(t=>(
+              <div key={t.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:`1px solid ${C.g100}`}}>
+                <div style={{...s.ava(30,C.redL)}}><span style={{color:C.red,fontWeight:600}}>{t.name.charAt(0)}</span></div>
+                <div><div style={{fontSize:13,fontWeight:500}}>{t.name}</div><div style={{fontSize:11,color:C.g500}}>{t.subject}</div></div>
+                <span style={{...s.bdg(attendance[t.id]==="halfday"?C.yellow:attendance[t.id]==="emergency"?C.purple:C.red,attendance[t.id]==="halfday"?C.yellowL:attendance[t.id]==="emergency"?C.purpleL:C.redL),marginLeft:"auto"}}>{attendance[t.id]}</span>
+              </div>
+            ))
+          }
+        </div>
+        <div style={s.card}>
+          <div style={{fontSize:13,fontWeight:600,marginBottom:12}}>Today's Arrangements</div>
+          {!arrangements.length?<div style={{textAlign:"center",padding:24,color:C.g400,fontSize:12}}>None yet. Mark attendance first.</div>:(
+            <table style={{width:"100%",borderCollapse:"collapse"}}>
+              <thead><tr><th style={s.TH}>Substitute</th><th style={s.TH}>Class</th><th style={s.TH}>P.</th></tr></thead>
+              <tbody>{arrangements.slice(0,6).map(a=>(
+                <tr key={a.id}><td style={s.TD}>{a.subName}</td><td style={s.TD}>{a.class}-{a.section}</td><td style={s.TD}>{a.period}</td></tr>
+              ))}</tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════
+// ROOT APP
+// ═══════════════════════════════════
+function App(){
+  const[user,setUser]=useState(null);
+  const[page,setPage]=useState("dashboard");
+  const[loading,setLoading]=useState(true);
+
+  // All state starts from localStorage (instant), then Supabase overwrites if configured
+  const[teachers,setTeachersState]=useState(()=>LS.get("sa_teachers",INIT_TEACHERS));
+  const[users,setUsersState]=useState(()=>LS.get("sa_users",INIT_USERS));
+  const[periodsPerDay,setPPDState]=useState(()=>LS.get("sa_ppd",8));
+  const[attendance,setAttendanceState]=useState(()=>{
+    const saved=LS.get("sa_att_"+TODAY,null);
+    if(saved)return saved;
+    const m={};INIT_TEACHERS.forEach(t=>{m[t.id]="present";});
+    return m;
+  });
+  const[arrangements,setArrangementsState]=useState(()=>LS.get("sa_arr_"+TODAY,[]));
+  const[requests,setRequestsState]=useState(()=>LS.get("sa_req",[]));
+  const[history,setHistory]=useState(()=>DB.getHistory({}));
+  const[reasons,setReasonsState]=useState(()=>LS.get("sa_reasons_"+TODAY,{}));
+  const[attSaved,setAttSavedState]=useState(()=>LS.get("sa_att_saved_"+TODAY,{}));
+
+  // Load from Supabase on mount (if configured)
+  useEffect(()=>{
+    async function loadFromDB(){
+      try{
+        const[t,u,ppd,att,arr,req,rea,saved]=await Promise.all([
+          DB.getTeachers(INIT_TEACHERS),
+          DB.getUsers(INIT_USERS),
+          DB.getPPD(8),
+          DB.getAttendance(TODAY,null),
+          DB.getArrangements(TODAY,[]),
+          DB.getRequests([]),
+          DB.getReasons(TODAY,{}),
+          DB.getAttSaved(TODAY,{}),
+        ]);
+        setTeachersState(t);
+        setUsersState(u);
+        setPPDState(ppd);
+        if(att){setAttendanceState(att);}
+        setArrangementsState(arr);
+        setRequestsState(req);
+        setReasonsState(rea);
+        setAttSavedState(saved);
+      }catch(e){console.error("DB load error:",e);}
+      finally{setLoading(false);}
+    }
+    loadFromDB();
+  },[]);
+
+  // Wrapped setters that also write to Supabase
+  const setTeachers=(v)=>{
+    setTeachersState(v);
+    DB.setTeachers(v).then(()=>{
+      console.log("✅ Teachers saved to Supabase:",v.length,"teachers");
+    }).catch(e=>console.error("❌ Teachers Supabase error:",e));
+  };
+  const setUsers=(v)=>{
+    setUsersState(v);
+    DB.setUsers(v).then(()=>console.log("✅ Users saved to Supabase")).catch(e=>console.error("❌ Users error:",e));
+  };
+  const setPeriodsPerDay=(v)=>{setPPDState(v);DB.setPPD(v);};
+  const setAttendance=(fn)=>{
+    setAttendanceState(prev=>{
+      const next=typeof fn==="function"?fn(prev):fn;
+      DB.setAttendance(TODAY,next);
+      return next;
+    });
+  };
+  const setArrangements=(fnOrVal)=>{
+    setArrangementsState(prev=>{
+      const next=typeof fnOrVal==="function"?fnOrVal(prev):fnOrVal;
+      DB.setArrangements(TODAY,next);
+      return next;
+    });
+  };
+  const setRequests=(fnOrVal)=>{
+    setRequestsState(prev=>{
+      const next=typeof fnOrVal==="function"?fnOrVal(prev):fnOrVal;
+      DB.setRequests(next);
+      return next;
+    });
+  };
+  const setReasons=(fn)=>{
+    setReasonsState(prev=>{
+      const next=typeof fn==="function"?fn(prev):fn;
+      DB.setReasons(TODAY,next);
+      return next;
+    });
+  };
+  const setAttSaved=(fn)=>{
+    setAttSavedState(prev=>{
+      const next=typeof fn==="function"?fn(prev):fn;
+      DB.setAttSaved(TODAY,next);
+      return next;
+    });
+  };
+
+  if(loading)return(
+    <div style={{minHeight:"100vh",background:"#0A0A0A",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12}}>
+      <div style={{color:"#fff",fontSize:18,fontWeight:600}}>SchoolArrange</div>
+      <div style={{color:"#71717A",fontSize:13}}>{_supa?"Connecting to database…":"Loading…"}</div>
+    </div>
+  );
+
+  // FIX #9: save full list (all teachers) to history when generating
+  const handleGenerate=(arr)=>{
+    setArrangements(arr);
+    // FIX #2: if teacher marked present, clear their absent reason
+    const cleanedReasons={...reasons};
+    teachers.forEach(t=>{
+      if((attendance[t.id]||"present")==="present"){
+        delete cleanedReasons[t.id];
+      }
+    });
+    setReasons(cleanedReasons);
+    LS.set("sa_reasons_"+TODAY,cleanedReasons);
+    // FIX #1: save periodsPerDay in history snapshot
+    const fullList=teachers.map(t=>({
+      name:t.name,
+      status:attendance[t.id]||"present",
+      reason:(attendance[t.id]||"present")!=="present"?(cleanedReasons[t.id]||""):"",
+    }));
+    const absentList=fullList.filter(t=>t.status!=="present");
+    const newHist={...history,[TODAY]:{arrangements:arr,absentList,fullList,date:TODAY,periodsPerDay}};
+    setHistory(newHist);DB.setHistory(newHist);
+  };
+
+  if(!user)return <Login onLogin={u=>{setUser(u);setPage("dashboard");}} users={users} teachers={teachers}/>;
+
+  const isAdmin=user.role==="admin"||user.role==="superadmin";
+  const titles={dashboard:"Dashboard",attendance:"Attendance",arrangements:"Arrangements",history:"Past Days History",teachers:"Teachers",requests:"Change Requests",reports:"Monthly Reports",timetable:"Class Timetable",settings:"Settings",admins:"Manage Admins"};
+
+  return(
+    <div style={{height:"100vh",display:"flex",overflow:"hidden"}}>
+      <Sidebar user={user} page={page} setPage={setPage} onLogout={()=>{setUser(null);setPage("dashboard");}}/>
+      <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        <div style={{background:C.white,borderBottom:`1px solid ${C.g200}`,padding:"0 20px",height:52,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+          <div style={{fontSize:14,fontWeight:600}}>{titles[page]||page}</div>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            {user.role==="superadmin"&&<span style={s.bdg(C.purple,C.purpleL)}>🔑 Super Admin</span>}
+            <div style={{fontSize:11,color:C.g500}}>{TODAY}</div>
+            <div style={s.ava(28,user.role==="superadmin"?C.purple:user.role==="admin"?"#333":C.blue)}>{user.name?.charAt(0)}</div>
+          </div>
+        </div>
+        <div style={{flex:1,overflowY:"auto",padding:20,background:C.g50}}>
+          {page==="dashboard"&&<Dashboard teachers={teachers} attendance={attendance} arrangements={arrangements} requests={requests} user={user} attSaved={attSaved}/>}
+          {page==="attendance"&&<PageAttendance teachers={teachers} attendance={attendance} setAttendance={setAttendance} onGenerate={handleGenerate} arrangements={arrangements} setArrangements={setArrangements} user={user} periodsPerDay={periodsPerDay} reasons={reasons} setReasons={setReasons} attSaved={attSaved} setAttSaved={setAttSaved}/>}
+          {page==="arrangements"&&<PageArrangements arrangements={arrangements} setArrangements={setArrangements} teachers={teachers} attendance={attendance} user={user} requests={requests} setRequests={setRequests} attSaved={attSaved}/>}
+          {page==="history"&&isAdmin&&<PageHistory history={history}/>}
+          {page==="teachers"&&isAdmin&&<PageTeachers teachers={teachers} setTeachers={setTeachers} user={user}/>}
+          {page==="requests"&&<PageRequests requests={requests} setRequests={setRequests} arrangements={arrangements} setArrangements={setArrangements} teachers={teachers} attendance={attendance} user={user} periodsPerDay={periodsPerDay}/>}
+          {page==="reports"&&<PageReports teachers={teachers} arrangements={arrangements} requests={requests} user={user}/>}
+          {page==="timetable"&&isAdmin&&<PageTimetable teachers={teachers} periodsPerDay={periodsPerDay} user={user}/>}
+          {page==="settings"&&isAdmin&&<PageSettings periodsPerDay={periodsPerDay} setPeriodsPerDay={setPeriodsPerDay}/>}
+          {page==="admins"&&user.role==="superadmin"&&<PageAdmins users={users} setUsers={setUsers}/>}
+          {page==="admins"&&user.role==="admin"&&<div style={{...s.card,textAlign:"center",padding:40,color:C.g400}}>Access denied. Only Super Admin can manage admins.</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.render(<App/>,document.getElementById("root"));
+</script>
+</body>
+</html>
